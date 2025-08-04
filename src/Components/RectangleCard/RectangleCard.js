@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,39 +14,44 @@ const RectangleCard = ({ activeCategory, setActiveCategory }) => {
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('http://192.168.1.116:8080/api/fed-categories/feedcategories');
-        const data = await response.json();
-        if (Array.isArray(data.categories)) {
-          setCategories(data.categories);
-        } else {
-          console.error("Invalid format from API:", data);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      } finally {
-        setLoading(false);
+  const API_URL = useMemo(() => 'http://192.168.1.116:8080/api/fed-categories/feedcategories', []);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories);
+      } else {
+        console.error("Invalid format from API:", data);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL]);
 
+  useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
-  const renderItem = ({ item }) => (
+  const renderItem = useCallback(({ item }) => (
     <TouchableOpacity
       style={[
         styles.rectangleCard,
         activeCategory === item ? styles.activeCard : styles.inactiveCard,
       ]}
       onPress={() => setActiveCategory(item)}
+      activeOpacity={0.8}
     >
       <Text style={styles.cardText}>
         {t(`categories.${item}`, item)}
       </Text>
     </TouchableOpacity>
-  );
+  ), [activeCategory, setActiveCategory, t]);
+
+  const keyExtractor = useCallback((item, index) => index.toString(), []);
 
   if (loading) {
     return (
@@ -61,10 +65,13 @@ const RectangleCard = ({ activeCategory, setActiveCategory }) => {
     <FlatList
       data={categories}
       renderItem={renderItem}
-      keyExtractor={(item, index) => index.toString()}
+      keyExtractor={keyExtractor}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.flatListContainer}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={5}
+      windowSize={10}
     />
   );
 };

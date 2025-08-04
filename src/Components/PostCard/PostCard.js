@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,12 +9,6 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
-} from "react-native";
-import Icon from "react-native-vector-icons/Feather";
-import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AntDesign } from "@expo/vector-icons";
-import {
   Modal,
   Pressable,
   ScrollView,
@@ -24,10 +17,153 @@ import {
   Platform,
   BackHandler,
 } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AntDesign } from "@expo/vector-icons";
 import RNModal from "react-native-modal";
 
 const screenWidth = Dimensions.get("window").width;
 const MAX_CONTENT_LINES = 3;
+
+// Memoized components for better performance
+const PostHeader = React.memo(({ uploadedBy }) => (
+  <View style={styles.header}>
+    <Image
+      source={{ uri: "https://randomuser.me/api/portraits/men/1.jpg" }}
+      style={styles.profileImage}
+    />
+    <Text style={styles.username}>{uploadedBy || "Unknown"}</Text>
+  </View>
+));
+
+const PostActions = React.memo(({ 
+  isLiked, 
+  totalLikes, 
+  totalComments, 
+  onLike, 
+  onComment 
+}) => (
+  <View style={styles.actions}>
+    <TouchableOpacity onPress={onLike}>
+      <AntDesign
+        name={isLiked ? "heart" : "hearto"}
+        size={24}
+        color={isLiked ? "red" : "black"}
+        style={styles.icon}
+      />
+    </TouchableOpacity>
+    <Text style={styles.countText}>{totalLikes} Likes</Text>
+
+    <TouchableOpacity onPress={onComment} style={styles.commentButton}>
+      <Icon name="message-circle" size={24} color="black" />
+    </TouchableOpacity>
+
+    <Text style={styles.countText}>{totalComments} Comments</Text>
+  </View>
+));
+
+const PostContent = React.memo(({ 
+  content, 
+  isExpanded, 
+  onToggleExpand, 
+  tags, 
+  uploadedAt 
+}) => (
+  <>
+    <View style={styles.captionContainer}>
+      <Text
+        numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
+        style={styles.caption}
+      >
+        {content}
+      </Text>
+      {content.length > 100 && (
+        <TouchableOpacity onPress={onToggleExpand}>
+          <Text style={styles.viewMoreText}>
+            {isExpanded ? "View Less" : "View More"}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+
+    {tags?.length > 0 && (
+      <View style={styles.tagsContainer}>
+        {tags.map((tag, index) => (
+          <Text key={index} style={styles.tag}>
+            #{tag}
+          </Text>
+        ))}
+      </View>
+    )}
+
+    <Text style={styles.timestamp}>
+      Posted on {new Date(uploadedAt).toLocaleDateString()}
+    </Text>
+  </>
+));
+
+const CommentItem = React.memo(({ 
+  comment, 
+  currentUserId, 
+  isPostOwner, 
+  onReply, 
+  onDelete,
+  visibleReplies,
+  onToggleReplies,
+  renderReplies 
+}) => (
+  <View style={styles.commentBlock}>
+    <View style={styles.commentHeader}>
+      <Image
+        source={{ uri: "https://randomuser.me/api/portraits/men/10.jpg" }}
+        style={styles.commentUserImage}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.commentUser}>{comment.commenterName}</Text>
+        <Text style={styles.commentText}>{comment.text}</Text>
+        <Text style={styles.commentTime}>
+          {new Date(comment.commentedAt).toLocaleString()}
+        </Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <TouchableOpacity onPress={() => onReply(comment.commentId, comment.commenterName)}>
+            <Text style={styles.replyBtn}>Reply</Text>
+          </TouchableOpacity>
+
+          {(comment.commenterId === currentUserId || isPostOwner) && (
+            <TouchableOpacity onPress={() => onDelete(comment.commentId)}>
+              <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {comment.replies && comment.replies.length > 0 && (
+          <>
+            {visibleReplies[comment.commentId]
+              ? renderReplies(comment.replies)
+              : renderReplies([comment.replies[0]])}
+
+            {comment.replies.length > 1 && (
+              <TouchableOpacity
+                onPress={() => onToggleReplies(comment.commentId)}
+                style={{ marginTop: 5, marginLeft: 20 }}
+              >
+                <Text style={{ color: "#6200ee", fontSize: 13 }}>
+                  {visibleReplies[comment.commentId]
+                    ? "Hide Replies"
+                    : `View ${comment.replies.length - 1} more repl${
+                        comment.replies.length - 1 === 1 ? "y" : "ies"
+                      }`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+    </View>
+  </View>
+));
 
 const PostCard = ({ activeCategory }) => {
   const [posts, setPosts] = useState([]);
@@ -35,77 +171,75 @@ const PostCard = ({ activeCategory }) => {
   const [error, setError] = useState(null);
   const navigation = useNavigation();
   const [expandedPosts, setExpandedPosts] = useState({});
-
   const [visibleReplies, setVisibleReplies] = useState({});
-  const toggleReplies = (commentId) => {
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyToUser, setReplyToUser] = useState(null);
+
+  // Memoized API base URL
+  const API_BASE = useMemo(() => "http://192.168.1.116:8080/api/users", []);
+
+  const toggleReplies = useCallback((commentId) => {
     setVisibleReplies((prev) => ({
       ...prev,
       [commentId]: !prev[commentId],
     }));
-  };
-
-  const [currentUserId, setCurrentUserId] = useState(null);
-
-  useEffect(() => {
-    const fetchCurrentUserId = async () => {
-      const id = await AsyncStorage.getItem("userId");
-      console.log("👤 Current logged-in user ID:", id);
-      setCurrentUserId(Number(id));
-    };
-    fetchCurrentUserId();
   }, []);
 
-  const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState(null);
-  const [selectedPost, setSelectedPost] = useState(null); // ✅ Add this
-
-  const [comments, setComments] = useState([]);
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [newComment, setNewComment] = useState("");
-
-  //replyy comment
-  const [replyingTo, setReplyingTo] = useState(null); // comment ID
-  const [replyToUser, setReplyToUser] = useState(null);
+  const fetchCurrentUserId = useCallback(async () => {
+    const id = await AsyncStorage.getItem("userId");
+    console.log("👤 Current logged-in user ID:", id);
+    setCurrentUserId(Number(id));
+  }, []);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("token");
-        if (!token) throw new Error("No authentication token found");
+    fetchCurrentUserId();
+  }, [fetchCurrentUserId]);
 
-        const userId = await AsyncStorage.getItem("userId");
+  const fetchPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("No authentication token found");
 
-        const response = await fetch(
-          `http://192.168.1.116:8080/api/users/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+      const userId = await AsyncStorage.getItem("userId");
 
-        if (!response.ok) throw new Error(`Error: ${response.status}`);
-        const data = await response.json();
+      const response = await fetch(
+        `${API_BASE}/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-        // Set isLiked from backend response
-        const updated = data.map((post) => ({
-          ...post,
-          isLiked: post.liked || false,
-        }));
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
+      const data = await response.json();
 
-        setPosts(updated);
-      } catch (err) {
-        console.error("Error fetching posts:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const updated = data.map((post) => ({
+        ...post,
+        isLiked: post.liked || false,
+      }));
 
+      setPosts(updated);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCategory, API_BASE]);
+
+  useEffect(() => {
     fetchPosts();
-  }, [activeCategory]);
+  }, [fetchPosts]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -122,9 +256,8 @@ const PostCard = ({ activeCategory }) => {
     return () => backHandler.remove();
   }, [commentModalVisible]);
 
-  const flattenReplies = (replies) => {
+  const flattenReplies = useCallback((replies) => {
     const flat = [];
-
     const recurse = (arr) => {
       for (const reply of arr) {
         flat.push(reply);
@@ -133,22 +266,16 @@ const PostCard = ({ activeCategory }) => {
         }
       }
     };
-
     recurse(replies);
     return flat;
-  };
+  }, []);
 
-  const isPostOwner = () => {
+  const isPostOwner = useCallback(() => {
     if (!selectedPost || !currentUserId) return false;
-
-    console.log("🔍 Post owner check");
-    console.log("📮 uploaderId:", selectedPost.uploaderId);
-    console.log("👤 currentUserId:", currentUserId);
-
     return selectedPost.uploaderId === currentUserId;
-  };
+  }, [selectedPost, currentUserId]);
 
-  const renderReplies = (replies) => {
+  const renderReplies = useCallback((replies) => {
     return replies.map((reply, index) => (
       <View
         key={reply.replyId || index}
@@ -161,21 +288,17 @@ const PostCard = ({ activeCategory }) => {
           />
           <View style={{ flex: 1 }}>
             <Text style={styles.commentUser}>{reply.replierName}</Text>
-
             <Text style={styles.commentText}>
               <Text style={{ fontWeight: "bold", color: "#333" }}>
                 @{reply.repliedToName}
               </Text>{" "}
               {reply.text}
             </Text>
-
             <Text style={styles.commentTime}>
               {new Date(reply.repliedAt).toLocaleString()}
             </Text>
 
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-            >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <TouchableOpacity
                 onPress={() => {
                   setReplyingTo(reply.replyId);
@@ -185,24 +308,9 @@ const PostCard = ({ activeCategory }) => {
                 <Text style={styles.replyBtn}>Reply</Text>
               </TouchableOpacity>
 
-              {(reply.replierId === currentUserId ||
-                isPostOwner(selectedPostId)) && (
+              {(reply.replierId === currentUserId || isPostOwner()) && (
                 <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Delete Reply",
-                      "Are you sure you want to delete this reply?",
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Delete",
-                          style: "destructive",
-                          onPress: () =>
-                            handleDeleteCommentOrReply(reply.replyId),
-                        },
-                      ]
-                    )
-                  }
+                  onPress={() => handleDeleteCommentOrReply(reply.replyId)}
                 >
                   <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
                 </TouchableOpacity>
@@ -212,37 +320,33 @@ const PostCard = ({ activeCategory }) => {
         </View>
       </View>
     ));
-  };
+  }, [currentUserId, isPostOwner, replyingTo, replyToUser]);
 
-  // delt commetn
-  const handleDeleteCommentOrReply = async (id) => {
+  const handleDeleteCommentOrReply = useCallback(async (id) => {
     const token = await AsyncStorage.getItem("token");
 
     try {
-      const res = await fetch(
-        `http://192.168.1.116:8080/api/users/comment/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${API_BASE}/comment/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await res.json();
 
       if (res.ok) {
         console.log("✅ Deleted:", data);
-        fetchComments(selectedPostId); // Refresh
+        fetchComments(selectedPostId);
       } else {
         console.warn("❌ Delete failed:", data);
       }
     } catch (err) {
       console.error("🔥 Error deleting:", err);
     }
-  };
+  }, [API_BASE, selectedPostId]);
 
-  const handleAddComment = async () => {
+  const handleAddComment = useCallback(async () => {
     if (!newComment.trim()) {
       console.log("🚫 Empty comment, skipping post.");
       return;
@@ -252,19 +356,16 @@ const PostCard = ({ activeCategory }) => {
     const userId = await AsyncStorage.getItem("userId");
 
     const endpoint = replyingTo
-      ? `http://192.168.1.116:8080/api/users/reply/${replyingTo}`
-      : `http://192.168.1.116:8080/api/users/comment/${selectedPostId}`;
+      ? `${API_BASE}/reply/${replyingTo}`
+      : `${API_BASE}/comment/${selectedPostId}`;
 
     const bodyData = replyingTo
       ? {
           userId: Number(userId),
           text: newComment.trim(),
-          repliedToUser: replyToUser, // ✅ Add this field
+          repliedToUser: replyToUser,
         }
       : { text: newComment.trim(), parentCommentId: null };
-
-    console.log("📤 Posting to:", endpoint);
-    console.log("📦 Payload:", bodyData);
 
     try {
       const res = await fetch(endpoint, {
@@ -290,166 +391,136 @@ const PostCard = ({ activeCategory }) => {
     } catch (err) {
       console.error("🔥 Network error while posting comment:", err);
     }
-  };
+  }, [newComment, replyingTo, replyToUser, selectedPostId, API_BASE]);
 
-  // render reply
-  const fetchComments = async (postId) => {
+  const fetchComments = useCallback(async (postId) => {
     try {
       setLoadingComments(true);
       const token = await AsyncStorage.getItem("token");
 
-      const response = await fetch(
-        `http://192.168.1.116:8080/api/users/comments/${postId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE}/comments/${postId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       const data = await response.json();
-
-      console.log("📥 Comments fetched for post:", postId);
-      console.log("🧾 Response shape:", JSON.stringify(data, null, 2));
-
       setComments(data.comments || []);
-      setSelectedPost(data); // ✅ Now you’re storing the full post info including uploaderId
+      setSelectedPost(data);
     } catch (error) {
       console.error("❌ Error fetching comments:", error);
     } finally {
       setLoadingComments(false);
     }
-  };
+  }, [API_BASE]);
 
-  const openCommentsModal = (postId) => {
+  const openCommentsModal = useCallback((postId) => {
     setSelectedPostId(postId);
     setCommentModalVisible(true);
     fetchComments(postId);
-  };
+  }, [fetchComments]);
 
-  const handleLike = async (postId) => {
+  const handleLike = useCallback(async (postId) => {
     try {
       const token = await AsyncStorage.getItem("token");
       const userId = await AsyncStorage.getItem("userId");
 
-      const response = await fetch(
-        `http://192.168.1.116:8080/api/users/like/${postId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId: parseInt(userId) }),
-        }
-      );
+      const response = await fetch(`${API_BASE}/like/${postId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: parseInt(userId) }),
+      });
 
       if (!response.ok) throw new Error("Failed to toggle like");
 
-      const data = await response.json(); // { postId, totalLikes, liked }
+      const data = await response.json();
 
-      const updatedPosts = posts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: data.liked,
-              totalLikes: data.totalLikes,
-            }
-          : post
+      setPosts(prevPosts =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: data.liked,
+                totalLikes: data.totalLikes,
+              }
+            : post
+        )
       );
-
-      setPosts(updatedPosts);
     } catch (error) {
       console.error("Like error:", error);
     }
-  };
+  }, [API_BASE]);
 
-  const toggleExpand = (postId) => {
+  const toggleExpand = useCallback((postId) => {
     setExpandedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
     }));
-  };
+  }, []);
 
-  const renderItem = ({ item }) => {
+  const handleReply = useCallback((commentId, commenterName) => {
+    setReplyingTo(commentId);
+    setReplyToUser(commenterName);
+  }, []);
+
+  const handleDeleteComment = useCallback((commentId) => {
+    Alert.alert(
+      "Delete Comment",
+      "Are you sure you want to delete this comment?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => handleDeleteCommentOrReply(commentId),
+        },
+      ]
+    );
+  }, [handleDeleteCommentOrReply]);
+
+  const renderItem = useCallback(({ item }) => {
     const isExpanded = expandedPosts[item.id];
 
     return (
       <View style={styles.card}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Image
-            source={{ uri: "https://randomuser.me/api/portraits/men/1.jpg" }}
-            style={styles.profileImage}
-          />
-          <Text style={styles.username}>{item.uploadedBy || "Unknown"}</Text>
-        </View>
+        <PostHeader uploadedBy={item.uploadedBy} />
 
-        {/* Post Image */}
         <Image
           source={{ uri: item.imageUrl }}
           style={styles.media}
           resizeMode="cover"
         />
 
-        {/* Like & Comment Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity onPress={() => handleLike(item.id)}>
-            <AntDesign
-              name={item.isLiked ? "heart" : "hearto"}
-              size={24}
-              color={item.isLiked ? "red" : "black"}
-              style={styles.icon}
-            />
-          </TouchableOpacity>
-          <Text style={styles.countText}>{item.totalLikes} Likes</Text>
+        <PostActions
+          isLiked={item.isLiked}
+          totalLikes={item.totalLikes}
+          totalComments={item.totalComments}
+          onLike={() => handleLike(item.id)}
+          onComment={() => openCommentsModal(item.id)}
+        />
 
-          <TouchableOpacity
-            onPress={() => openCommentsModal(item.id)}
-            style={styles.commentButton}
-          >
-            <Icon name="message-circle" size={24} color="black" />
-          </TouchableOpacity>
-
-          <Text style={styles.countText}>{item.totalComments} Comments</Text>
-        </View>
-
-        {/* Caption */}
-        <View style={styles.captionContainer}>
-          <Text
-            numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
-            style={styles.caption}
-          >
-            {item.content}
-          </Text>
-          {item.content.length > 100 && (
-            <TouchableOpacity onPress={() => toggleExpand(item.id)}>
-              <Text style={styles.viewMoreText}>
-                {isExpanded ? "View Less" : "View More"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Tags */}
-        {item.tags?.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {item.tags.map((tag, index) => (
-              <Text key={index} style={styles.tag}>
-                #{tag}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        {/* Time */}
-        <Text style={styles.timestamp}>
-          Posted on {new Date(item.uploadedAt).toLocaleDateString()}
-        </Text>
+        <PostContent
+          content={item.content}
+          isExpanded={isExpanded}
+          onToggleExpand={() => toggleExpand(item.id)}
+          tags={item.tags}
+          uploadedAt={item.uploadedAt}
+        />
       </View>
     );
-  };
+  }, [expandedPosts, handleLike, openCommentsModal, toggleExpand]);
+
+  const keyExtractor = useCallback((item) => item.id.toString(), []);
+
+  const getItemLayout = useCallback((data, index) => ({
+    length: 400, // Approximate height of each post
+    offset: 400 * index,
+    index,
+  }), []);
 
   if (loading) {
     return (
@@ -475,9 +546,14 @@ const PostCard = ({ activeCategory }) => {
       <FlatList
         data={posts}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        initialNumToRender={3}
+        getItemLayout={getItemLayout}
       />
 
       <RNModal
@@ -498,119 +574,17 @@ const PostCard = ({ activeCategory }) => {
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
               {comments.length > 0 ? (
                 comments.map((comment, index) => (
-                  <View key={index} style={styles.commentBlock}>
-                    <View style={styles.commentHeader}>
-                      <Image
-                        source={{
-                          uri: "https://randomuser.me/api/portraits/men/10.jpg",
-                        }}
-                        style={styles.commentUserImage}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.commentUser}>
-                          {comment.commenterName}
-                        </Text>
-                        <Text style={styles.commentText}>{comment.text}</Text>
-                        <Text style={styles.commentTime}>
-                          {new Date(comment.commentedAt).toLocaleString()}
-                        </Text>
-
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <TouchableOpacity
-                            onPress={() => {
-                              console.log(
-                                "↪️ Replying to comment ID:",
-                                comment.id,
-                                "by",
-                                comment.commenterName
-                              );
-                              setReplyingTo(comment.commentId);
-                              setReplyToUser(comment.commenterName);
-                            }}
-                          >
-                            <Text style={styles.replyBtn}>Reply</Text>
-                          </TouchableOpacity>
-
-                          {/* ✅ Show delete button if current user is post owner */}
-                          {(() => {
-                            const post = posts.find(
-                              (p) => p.id === selectedPostId
-                            );
-                            const isCommentOwner =
-                              comment.commenterId === currentUserId;
-                            const isUploader = isPostOwner(selectedPostId);
-
-                            if (isCommentOwner || isUploader) {
-                              return (
-                                <TouchableOpacity
-                                  onPress={() =>
-                                    Alert.alert(
-                                      "Delete Comment",
-                                      "Are you sure you want to delete this comment?",
-                                      [
-                                        { text: "Cancel", style: "cancel" },
-                                        {
-                                          text: "Delete",
-                                          style: "destructive",
-                                          onPress: () =>
-                                            handleDeleteCommentOrReply(
-                                              comment.commentId
-                                            ),
-                                        },
-                                      ]
-                                    )
-                                  }
-                                >
-                                  <Text style={{ color: "red" }}>Delete</Text>
-                                </TouchableOpacity>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </View>
-
-                        {/* Replies */}
-                        {/* Replies */}
-
-                        {comment.replies && comment.replies.length > 0 && (
-                          <>
-                            {visibleReplies[comment.commentId]
-                              ? renderReplies(flattenReplies(comment.replies))
-                              : renderReplies([
-                                  flattenReplies(comment.replies)[0],
-                                ])}
-
-                            {comment.replies.length > 1 && (
-                              <TouchableOpacity
-                                onPress={() => toggleReplies(comment.commentId)}
-                                style={{ marginTop: 5, marginLeft: 20 }}
-                              >
-                                <Text
-                                  style={{ color: "#6200ee", fontSize: 13 }}
-                                >
-                                  {visibleReplies[comment.commentId]
-                                    ? "Hide Replies"
-                                    : `View ${
-                                        comment.replies.length - 1
-                                      } more repl${
-                                        comment.replies.length - 1 === 1
-                                          ? "y"
-                                          : "ies"
-                                      }`}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  </View>
+                  <CommentItem
+                    key={index}
+                    comment={comment}
+                    currentUserId={currentUserId}
+                    isPostOwner={isPostOwner()}
+                    onReply={handleReply}
+                    onDelete={handleDeleteComment}
+                    visibleReplies={visibleReplies}
+                    onToggleReplies={toggleReplies}
+                    renderReplies={renderReplies}
+                  />
                 ))
               ) : (
                 <Text style={{ padding: 10, color: "#999" }}>
@@ -624,57 +598,46 @@ const PostCard = ({ activeCategory }) => {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             keyboardVerticalOffset={100}
           >
-            <>
-              {/* ✅ SHOWING "Replying to JohnDoe" LINE */}
-              {replyingTo && (
-                <View
-                  style={{
-                    padding: 10,
-                    backgroundColor: "#eee",
-                    borderRadius: 8,
-                    margin: 10,
+            {replyingTo && (
+              <View style={styles.replyInfo}>
+                <Text style={styles.replyInfoText}>
+                  Replying to <Text style={{ fontWeight: "bold" }}>{replyToUser}</Text>
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setReplyingTo(null);
+                    setReplyToUser(null);
                   }}
                 >
-                  <Text style={{ color: "#333" }}>
-                    Replying to{" "}
-                    <Text style={{ fontWeight: "bold" }}>{replyToUser}</Text>
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setReplyingTo(null);
-                      setReplyToUser(null);
-                    }}
-                  >
-                    <Text style={{ color: "red", marginTop: 5 }}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* ✅ COMMENT / REPLY INPUT */}
-              <View style={styles.commentInputWrapper}>
-                <TextInput
-                  placeholder={
-                    replyingTo ? "Write your reply..." : "Add a comment..."
-                  }
-                  placeholderTextColor="#777"
-                  value={newComment}
-                  onChangeText={setNewComment}
-                  style={styles.commentInput}
-                />
-                <TouchableOpacity
-                  onPress={handleAddComment}
-                  style={styles.postButton}
-                >
-                  <Text style={styles.postButtonText}>Post</Text>
+                  <Text style={styles.cancelReplyText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-            </>
+            )}
+
+            <View style={styles.commentInputWrapper}>
+              <TextInput
+                placeholder={
+                  replyingTo ? "Write your reply..." : "Add a comment..."
+                }
+                placeholderTextColor="#777"
+                value={newComment}
+                onChangeText={setNewComment}
+                style={styles.commentInput}
+              />
+              <TouchableOpacity
+                onPress={handleAddComment}
+                style={styles.postButton}
+              >
+                <Text style={styles.postButtonText}>Post</Text>
+              </TouchableOpacity>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </RNModal>
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
@@ -781,79 +744,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingBottom: 30,
   },
-
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  modalContainer: {
-    height: "60%",
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 16,
-    color: "#111",
-    textAlign: "center",
-  },
-  commentBlock: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#efefef",
-  },
-  commentUser: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111",
-  },
-  commentText: {
-    fontSize: 14,
-    color: "#222",
-    marginTop: 2,
-    lineHeight: 20,
-  },
-  commentTime: {
-    fontSize: 11,
-    color: "#999",
-    marginTop: 4,
-  },
-  repliesContainer: {
-    marginLeft: 20,
-    paddingLeft: 10,
-    borderLeftWidth: 1,
-    borderLeftColor: "#ddd",
-  },
-  replyBlock: {
-    marginTop: 6,
-    padding: 8,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 6,
-  },
-  replyUser: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111",
-  },
-  replyText: {
-    fontSize: 13,
-    color: "#333",
-    lineHeight: 18,
-  },
-  replyTime: {
-    fontSize: 11,
-    color: "#aaa",
-    marginTop: 3,
-  },
-  closeModalButton: {
-    alignSelf: "center",
-    marginTop: 15,
-  },
-
   modalContainerWrapper: {
     justifyContent: "flex-end",
     margin: 0,
@@ -879,6 +769,18 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    color: "#111",
+    textAlign: "center",
+  },
+  commentBlock: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#efefef",
+  },
   commentHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -890,11 +792,21 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: "#ddd",
   },
-  replyUserImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#ddd",
+  commentUser: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111",
+  },
+  commentText: {
+    fontSize: 14,
+    color: "#222",
+    marginTop: 2,
+    lineHeight: 20,
+  },
+  commentTime: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 4,
   },
   replyBtn: {
     fontSize: 13,
@@ -902,19 +814,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 6,
   },
-  replyBlock: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    gap: 10,
-  },
-
   commentInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 5,
   },
-
   commentInput: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -924,17 +828,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#111",
   },
-
   postButton: {
     marginLeft: 10,
   },
-
   postButtonText: {
     color: "#000",
     fontWeight: "600",
     fontSize: 14,
   },
-
   replyInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -945,12 +846,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 8,
   },
-
   replyInfoText: {
     fontSize: 13,
     color: "#333",
   },
-
   cancelReplyText: {
     color: "#000",
     fontSize: 13,

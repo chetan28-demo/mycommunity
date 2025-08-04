@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,34 +14,37 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
   const [loading, setLoading] = useState(true);
   const { t, i18n } = useTranslation();
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('http://192.168.1.116:8080/api/fed-categories/feedcategories');
-        const data = await response.json();
+  const API_URL = useMemo(() => 'http://192.168.1.116:8080/api/fed-categories/feedcategories', []);
 
-        if (Array.isArray(data.categories)) {
-          setCategories(data.categories);
-        } else {
-          console.error('Invalid categories response');
-        }
-      } catch (err) {
-        console.error('Fetch categories failed:', err);
-      } finally {
-        setLoading(false);
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories);
+      } else {
+        console.error('Invalid categories response');
       }
-    };
+    } catch (err) {
+      console.error('Fetch categories failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL]);
 
+  useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
-  const renderItem = ({ item }) => (
+  const renderItem = useCallback(({ item }) => (
     <TouchableOpacity
       style={[
         styles.circleCard,
         activeCategory === item ? styles.activeCard : styles.inactiveCard,
       ]}
       onPress={() => setActiveCategory(item)}
+      activeOpacity={0.8}
     >
       <Text
         style={[
@@ -53,7 +55,14 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
         {t(`categories.${item}`, item)}
       </Text>
     </TouchableOpacity>
-  );
+  ), [activeCategory, setActiveCategory, t]);
+
+  const keyExtractor = useCallback((item, index) => item + index, []);
+
+  const changeLanguage = useCallback(() => {
+    const nextLang = i18n.language === 'en' ? 'gj' : 'en';
+    i18n.changeLanguage(nextLang);
+  }, [i18n]);
 
   if (loading) {
     return (
@@ -68,17 +77,20 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
       <FlatList
         data={categories}
         renderItem={renderItem}
-        keyExtractor={(item, index) => item + index}
+        keyExtractor={keyExtractor}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 10 }}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        windowSize={10}
       />
 
-      {/* Language Switcher Button */}
-      <TouchableOpacity style={styles.languageBtn} onPress={() => {
-        const nextLang = i18n.language === 'en' ? 'gj' : 'en';
-        i18n.changeLanguage(nextLang);
-      }}>
+      <TouchableOpacity 
+        style={styles.languageBtn} 
+        onPress={changeLanguage}
+        activeOpacity={0.8}
+      >
         <Text style={styles.languageText}>
           {i18n.language === 'en' ? 'Gujarati' : 'English'}
         </Text>
@@ -88,9 +100,3 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
 };
 
 export default CircleCard;
-
-
-
-
-
-

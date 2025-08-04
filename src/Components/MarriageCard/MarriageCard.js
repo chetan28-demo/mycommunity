@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,19 +13,44 @@ import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
+const DetailRow = React.memo(({ icon, label, value }) => (
+  <View style={styles.detailsRow}>
+    <Ionicons name={icon} size={20} color="#555" />
+    <Text style={styles.detailsLabel}>{label}:</Text>
+    <Text style={styles.detailsValue}>{value}</Text>
+  </View>
+));
+
 const MarriageCard = ({ match }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const navigation = useNavigation();
 
-  const imagesAvailable = match.images?.length > 0;
-  const isSingleImage = match.images?.length === 1;
-  const totalImages = match.images?.length || 0;
+  const imagesAvailable = useMemo(() => match.images?.length > 0, [match.images]);
+  const isSingleImage = useMemo(() => match.images?.length === 1, [match.images]);
+  const totalImages = useMemo(() => match.images?.length || 0, [match.images]);
 
-  const handleScroll = (event) => {
+  const handleScroll = useCallback((event) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const newIndex = Math.round(contentOffsetX / width);
     setCurrentIndex(newIndex);
-  };
+  }, []);
+
+  const handleViewProfile = useCallback(() => {
+    console.log("Navigating with userId:", match.id);
+    navigation.navigate("userprofile", { userId: match.id });
+  }, [match.id, navigation]);
+
+  const renderImage = useCallback(({ item }) => (
+    <Image source={{ uri: item }} style={styles.carouselImage} />
+  ), []);
+
+  const keyExtractor = useCallback((item, index) => `${item}-${index}`, []);
+
+  const getItemLayout = useCallback((data, index) => ({
+    length: width,
+    offset: width * index,
+    index,
+  }), []);
 
   return (
     <View style={styles.card}>
@@ -39,16 +63,18 @@ const MarriageCard = ({ match }) => {
             <FlatList
               data={match.images}
               horizontal
-              keyExtractor={(image, index) => `${image}-${index}`}
+              keyExtractor={keyExtractor}
               showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <Image source={{ uri: item }} style={styles.carouselImage} />
-              )}
+              renderItem={renderImage}
               onScroll={handleScroll}
               scrollEventThrottle={16}
               pagingEnabled
               snapToInterval={width}
               decelerationRate="fast"
+              getItemLayout={getItemLayout}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={3}
+              windowSize={5}
             />
             <View style={styles.imageCount}>
               <Text style={styles.imageCountText}>
@@ -68,53 +94,38 @@ const MarriageCard = ({ match }) => {
 
       {/* Details */}
       <View style={styles.cardDetails}>
-        <DetailRow icon="person-outline" label="Name" value={`${match.firstname} ${match.lastName}`} />
+        <DetailRow 
+          icon="person-outline" 
+          label="Name" 
+          value={`${match.firstname} ${match.lastName}`} 
+        />
         <DetailRow icon="calendar-outline" label="Age" value={match.age} />
         <DetailRow icon="male-female" label="Gender" value={match.gender} />
-        <DetailRow icon="checkmark-circle-outline" label="Status" value={match.maritalStatus} />
+        <DetailRow 
+          icon="checkmark-circle-outline" 
+          label="Status" 
+          value={match.maritalStatus} 
+        />
       </View>
 
       {/* Buttons */}
       <View style={styles.actionsRow}>
-        {/* <TouchableOpacity
+        <TouchableOpacity
           style={styles.viewProfileButton}
-          onPress={() => navigation.navigate("userprofile", { match })}
+          onPress={handleViewProfile}
+          activeOpacity={0.8}
         >
           <Ionicons name="eye" size={18} color="#000" />
           <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity> */}
+        </TouchableOpacity>
 
-        {/* // implementing clcik feature of view profile  */}
-      
-
-       <TouchableOpacity
-  style={styles.viewProfileButton}
-  onPress={() => {
-    console.log("Navigating with userId:", match.id); // ✅ Debug log
-    navigation.navigate("userprofile", { userId: match.id });
-  }}
->
-  <Ionicons name="eye" size={18} color="#000" />
-  <Text style={styles.buttonText}>View Profile</Text>
-</TouchableOpacity>
-
-
-
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity style={styles.addButton} activeOpacity={0.8}>
           <Ionicons name="person-add" size={18} color="#000" />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
-
-const DetailRow = ({ icon, label, value }) => (
-  <View style={styles.detailsRow}>
-    <Ionicons name={icon} size={20} color="#555" />
-    <Text style={styles.detailsLabel}>{label}:</Text>
-    <Text style={styles.detailsValue}>{value}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   card: {
