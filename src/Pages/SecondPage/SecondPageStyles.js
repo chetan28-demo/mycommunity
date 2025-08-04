@@ -1,47 +1,4 @@
-// import { StyleSheet } from 'react-native';
 
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#f8f8f8',  // Soft background color
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     paddingHorizontal: 20,
-//   },
-//   title: {
-//     fontSize: 24,
-//     fontWeight: 'bold',
-//     color: '#4CAF50',  // Green color for title
-//     marginBottom: 20,
-//   },
-//   radioGroup: {
-//     width: '100%',
-//     marginBottom: 30,
-//   },
-//   radioLabel: {
-//     fontSize: 18,
-//     color: '#333',
-//     marginBottom: 10,
-//     textAlign: 'center',  // Center-align the label
-//   },
-//   radioButtonContainer: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginVertical: 10,  // Space between radio buttons
-//   },
-//   radioButtonText: {
-//     fontSize: 16,
-//     color: '#333',  // Dark gray text color for radio options
-//     marginLeft: 10,
-//   },
-// });
-
-// export default styles;
-// 
-// 
-// pehle ka normal design neeche ka moder design
-// 
-// 
 
 
 import { StyleSheet } from 'react-native';
