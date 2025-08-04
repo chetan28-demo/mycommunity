@@ -1,27 +1,4 @@
 
-// import React, { createContext, useContext, useState } from "react";
-
-// const AuthContext = createContext();
-
-// export const AuthProvider = ({ children }) => {
-//   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-//   const login = () => setIsLoggedIn(true);
-//   const logout = () => setIsLoggedIn(false);
-
-//   return (
-//     <AuthContext.Provider value={{ isLoggedIn, login, logout }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// };
-
-// export const useAuth = () => useContext(AuthContext);
-
-
-// uppar wala ok hai bina backend k but neeche wala bakcend k sath try kar rahe hai actually 
-
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
