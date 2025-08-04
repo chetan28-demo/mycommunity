@@ -85,41 +85,6 @@ const Banner = () => {
   );
 };
 
-// // const styles = StyleSheet.create({
-// //   container: {
-// //     marginVertical: 10,
-// //   },
-// //   bannerContainer: {
-// //     width: screenWidth - 30, // Adjust width to fit screen with padding
-// //     height: 200,
-// //     borderRadius: 10,
-// //     overflow: 'hidden',
-// //     marginHorizontal: 15,
-// //   },
-// //   bannerImage: {
-// //     width: '100%',
-// //     height: '100%',
-// //   },
-// //   textOverlay: {
-// //     position: 'absolute',
-// //     bottom: 0,
-// //     left: 0,
-// //     right: 0,
-// //     backgroundColor: 'rgba(0, 0, 0, 0.6)', // Dark overlay for text
-// //     padding: 10,
-// //   },
-// //   headline: {
-// //     color: '#FFF',
-// //     fontSize: 16,
-// //     fontWeight: 'bold',
-// //   },
-// //   noDataText: {
-// //     textAlign: 'center',
-// //     color: '#888',
-// //     fontSize: 16,
-// //     marginTop: 20,
-// //   },
-// // });  // creatign an styling liek an namo app 
 
 const styles = StyleSheet.create({
   container: {
