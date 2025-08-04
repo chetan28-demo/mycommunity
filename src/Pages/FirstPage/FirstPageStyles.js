@@ -1,49 +1,4 @@
 
-// import { StyleSheet } from 'react-native';
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     backgroundColor: '#f7f9fc',
-//     padding: 20,
-//   },
-//   title: {
-//     fontSize: 24,
-//     fontWeight: 'bold',
-//     color: '#34495e',
-//     marginBottom: 20,
-//     textAlign: 'center',
-//   },
-//   pickerContainer: {
-//     width: '80%',
-//     backgroundColor: '#ecf0f1',
-//     borderRadius: 8,
-//     marginBottom: 20,
-//   },
-//   picker: {
-//     height: 50,
-//     color: '#34495e',
-//   },
-//   button: {
-//     backgroundColor: '#2ecc71',
-//     paddingVertical: 15,
-//     paddingHorizontal: 40,
-//     borderRadius: 8,
-//   },
-//   buttonText: {
-//     color: '#fff',
-//     fontWeight: 'bold',
-//     fontSize: 16,
-//   },
-// });
-
-// export default styles;
-
-// upar wala bhi ok ok hi but neeche wala more styling k liye kar rahe 
-
-
 import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
