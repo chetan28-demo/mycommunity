@@ -12,6 +12,7 @@ const LoadingSpinner = ({
     <View style={[styles.container, style]}>
       <ActivityIndicator size={size} color={color} />
       {text && <Text style={styles.text}>{text}</Text>}
+      }
     </View>
   );
 };

@@ -43,6 +43,7 @@ const ProfileField = React.memo(({
       <View style={styles.fieldValueContainer}>
         <Text style={styles.fieldValue}>{value || 'Not specified'}</Text>
         {unit && <Text style={styles.unit}>{unit}</Text>}
+        }
       </View>
     )}
   </View>
