@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Alert,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
   Image,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
+import { Text, Card, Input, Button } from '../../Components/UI';
+import { COLORS, SPACING, SHADOWS, SAFE_AREA } from '../../theme';
 
 const ProfileField = React.memo(({ 
   label, 
@@ -21,29 +21,35 @@ const ProfileField = React.memo(({
   editing, 
   onChange, 
   multiline = false, 
-  containerStyle = {}, 
   unit = '',
   ...props 
 }) => (
-  <View style={[styles.fieldContainer, containerStyle]}>
-    <View style={styles.fieldLabelContainer}>
-      <MaterialIcons name={icon} size={20} color="#212529" /> 
-      <Text style={styles.fieldLabel}>{label}</Text>
+  <View style={styles.fieldContainer}>
+    <View style={styles.fieldHeader}>
+      <MaterialIcons name={icon} size={20} color={COLORS.primary[600]} />
+      <Text variant="label" color="primary" style={styles.fieldLabel}>
+        {label}
+      </Text>
     </View>
+    
     {editing ? (
-      <TextInput
-        style={[styles.input, multiline && styles.multilineInput]}
+      <Input
         value={value}
         onChangeText={onChange}
         multiline={multiline}
-        placeholderTextColor="#212529"
+        style={styles.fieldInput}
         {...props}
       />
     ) : (
       <View style={styles.fieldValueContainer}>
-        <Text style={styles.fieldValue}>{value || 'Not specified'}</Text>
-        {unit && <Text style={styles.unit}>{unit}</Text>}
-        }
+        <Text variant="body1" color="primary" style={styles.fieldValue}>
+          {value || 'Not specified'}
+        </Text>
+        {unit && (
+          <Text variant="caption" color="secondary" style={styles.fieldUnit}>
+            {unit}
+          </Text>
+        )}
       </View>
     )}
   </View>
@@ -79,6 +85,7 @@ const ProfilePage = ({ navigation }) => {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Logout', 
+          style: 'destructive',
           onPress: async () => {
             await logout();
             navigation.reset({
@@ -164,7 +171,10 @@ const ProfilePage = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6b46c1" />
+        <ActivityIndicator size="large" color={COLORS.primary[600]} />
+        <Text variant="body2" color="secondary" style={styles.loadingText}>
+          Loading profile...
+        </Text>
       </View>
     );
   }
@@ -172,27 +182,29 @@ const ProfilePage = ({ navigation }) => {
   if (!profile) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Failed to load profile</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={fetchProfile}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </TouchableOpacity>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error[500]} />
+        <Text variant="h6" color="primary" style={styles.errorTitle}>
+          Failed to load profile
+        </Text>
+        <Button onPress={fetchProfile} style={styles.retryButton}>
+          Try Again
+        </Button>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity onPress={handleLogout} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={24} color="white" />
+        <Text variant="h5" color="inverse" style={styles.headerTitle}>
+          Profile
+        </Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
+          <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -201,58 +213,81 @@ const ProfilePage = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
+        {/* Profile Header Card */}
+        <Card style={styles.profileHeaderCard}>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: 'https://randomuser.me/api/portraits/men/1.jpg' }}
+              source={{ uri: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300' }}
               style={styles.avatar}
             />
             {editing && (
               <TouchableOpacity style={styles.editAvatarButton} activeOpacity={0.8}>
-                <MaterialIcons name="edit" size={18} color="white" />
+                <MaterialIcons name="camera-alt" size={20} color={COLORS.white} />
               </TouchableOpacity>
             )}
+            <View style={styles.onlineIndicator} />
           </View>
           
-          <Text style={styles.name}>
+          <Text variant="h3" color="primary" style={styles.name}>
             {profile.firstName} {profile.lastName}
           </Text>
           
-          <Text style={styles.username}>
+          <Text variant="body2" color="secondary" style={styles.username}>
             @{profile.firstName?.toLowerCase()}{profile.lastName?.toLowerCase()}
           </Text>
-        </View>
 
-        {/* Edit/Save Button */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text variant="h6" color="primary">12</Text>
+              <Text variant="caption" color="secondary">Posts</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text variant="h6" color="primary">248</Text>
+              <Text variant="caption" color="secondary">Connections</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text variant="h6" color="primary">1.2k</Text>
+              <Text variant="caption" color="secondary">Likes</Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Action Buttons */}
         <View style={styles.actionContainer}>
           {editing ? (
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.8}
-            >
-              {saving ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.editingActions}>
+              <Button 
+                variant="secondary"
+                onPress={() => setEditing(false)}
+                style={styles.cancelButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                onPress={handleSave}
+                loading={saving}
+                style={styles.saveButton}
+              >
+                Save Changes
+              </Button>
+            </View>
           ) : (
-            <TouchableOpacity 
-              style={styles.editButton}
+            <Button
+              variant="outline"
               onPress={toggleEditing}
-              activeOpacity={0.8}
+              style={styles.editButton}
             >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
+              <MaterialIcons name="edit" size={20} color={COLORS.primary[600]} />
+              Edit Profile
+            </Button>
           )}
         </View>
 
-        {/* Profile Details */}
-        <View style={styles.detailsContainer}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+        {/* Personal Information */}
+        <Card style={styles.sectionCard}>
+          <Text variant="h5" color="primary" style={styles.cardTitle}>
+            Personal Information
+          </Text>
           
           <ProfileField 
             label="First Name"
@@ -272,7 +307,7 @@ const ProfilePage = ({ navigation }) => {
           
           <ProfileField 
             label="Gender"
-            icon="transgender"
+            icon="wc"
             value={editing ? formData.gender : profile.gender}
             editing={editing}
             onChange={(val) => handleChange('gender', val)}
@@ -294,28 +329,35 @@ const ProfilePage = ({ navigation }) => {
             editing={editing}
             onChange={(val) => handleChange('maritalStatus', val)}
           />
-          
-          <Text style={styles.sectionTitle}>Physical Information</Text>
+        </Card>
+
+        {/* Physical Information */}
+        <Card style={styles.sectionCard}>
+          <Text variant="h5" color="primary" style={styles.cardTitle}>
+            Physical Information
+          </Text>
           
           <View style={styles.row}>
-            <ProfileField 
-              label="Height"
-              icon="straighten"
-              value={editing ? formData.height : profile.height}
-              editing={editing}
-              onChange={(val) => handleChange('height', val)}
-              containerStyle={{ flex: 1, marginRight: 10 }}
-              unit="ft"
-            />
-            <ProfileField 
-              label="Weight"
-              icon="monitor-weight"
-              value={editing ? formData.weight : profile.weight}
-              editing={editing}
-              onChange={(val) => handleChange('weight', val)}
-              containerStyle={{ flex: 1 }}
-              unit="kg"
-            />
+            <View style={styles.halfField}>
+              <ProfileField 
+                label="Height"
+                icon="straighten"
+                value={editing ? formData.height : profile.height}
+                editing={editing}
+                onChange={(val) => handleChange('height', val)}
+                unit="ft"
+              />
+            </View>
+            <View style={styles.halfField}>
+              <ProfileField 
+                label="Weight"
+                icon="monitor-weight"
+                value={editing ? formData.weight : profile.weight}
+                editing={editing}
+                onChange={(val) => handleChange('weight', val)}
+                unit="kg"
+              />
+            </View>
           </View>
           
           <ProfileField 
@@ -325,8 +367,13 @@ const ProfilePage = ({ navigation }) => {
             editing={editing}
             onChange={(val) => handleChange('bloodGroup', val)}
           />
-          
-          <Text style={styles.sectionTitle}>Contact Information</Text>
+        </Card>
+
+        {/* Contact Information */}
+        <Card style={styles.sectionCard}>
+          <Text variant="h5" color="primary" style={styles.cardTitle}>
+            Contact Information
+          </Text>
           
           <ProfileField 
             label="Father's Name"
@@ -347,13 +394,13 @@ const ProfilePage = ({ navigation }) => {
           
           <ProfileField 
             label="Emergency Contact"
-            icon="emergency"
+            icon="phone"
             value={editing ? formData.emergencyContact : profile.emergencyContact}
             editing={editing}
             onChange={(val) => handleChange('emergencyContact', val)}
             keyboardType="phone-pad"
           />
-        </View>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -362,182 +409,174 @@ const ProfilePage = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 30,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#e53e3e',
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#6b46c1',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    backgroundColor: COLORS.neutral[50],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: '3%',
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#001219',
-    elevation: 3,
+    paddingTop: SAFE_AREA.top,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.primary[600],
+    ...SHADOWS.md,
+  },
+  headerButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  profileHeader: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    backgroundColor: COLORS.white,
+  },
+  loadingText: {
+    marginTop: SPACING.sm,
+  },
+  errorTitle: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: SPACING.md,
+  },
+  profileHeaderCard: {
+    alignItems: 'center',
+    padding: SPACING.xl,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   avatar: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#242526',
+    borderWidth: 4,
+    borderColor: COLORS.white,
+    ...SHADOWS.md,
   },
   editAvatarButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#242526',
+    bottom: 4,
+    right: 4,
+    backgroundColor: COLORS.primary[600],
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
+    borderWidth: 3,
+    borderColor: COLORS.white,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.success[500],
+    borderWidth: 3,
+    borderColor: COLORS.white,
   },
   name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2d3748',
-    marginBottom: 5,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
   },
   username: {
-    fontSize: 16,
-    color: '#718096',
-    marginBottom: 20,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.neutral[200],
+  },
+  statItem: {
+    alignItems: 'center',
   },
   actionContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    marginBottom: SPACING.lg,
   },
-  editButton: {
-    backgroundColor: '#212529',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+  editingActions: {
+    flexDirection: 'row',
+    gap: SPACING.md,
   },
-  editButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+  cancelButton: {
+    flex: 1,
   },
   saveButton: {
-    backgroundColor: '#242e28ff',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+    flex: 1,
+  },
+  editButton: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  saveButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 10,
+  sectionCard: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
   },
-  detailsContainer: {
-    padding: 20,
-    backgroundColor: 'white',
-    marginTop: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2d3748',
-    marginBottom: 15,
-    marginTop: 10,
+  cardTitle: {
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neutral[200],
   },
   fieldContainer: {
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
-  fieldLabelContainer: {
+  fieldHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   fieldLabel: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#4a5568',
-    fontWeight: '600',
+    marginLeft: SPACING.sm,
   },
-  input: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#2d3748',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
+  fieldInput: {
+    marginBottom: 0,
   },
   fieldValueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: COLORS.neutral[50],
+    borderRadius: 12,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[200],
   },
   fieldValue: {
-    fontSize: 16,
-    color: '#2d3748',
     flex: 1,
   },
-  unit: {
-    fontSize: 14,
-    color: '#718096',
-    marginLeft: 5,
+  fieldUnit: {
+    marginLeft: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  halfField: {
+    flex: 1,
   },
 });
 

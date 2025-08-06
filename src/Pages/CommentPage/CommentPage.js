@@ -1,10 +1,6 @@
-
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TextInput,
   TouchableOpacity,
@@ -15,13 +11,128 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
-  Modal,
+  Pressable,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import RNModal from 'react-native-modal';
 import { addComment } from '../../utils/addComment';
 import { deleteComment } from '../../utils/deleteComment';
+import { Text, Card } from '../UI';
+import { COLORS, SPACING, SHADOWS } from '../../theme';
+
+const CommentActionModal = ({ visible, onClose, onDelete, comment }) => (
+  <RNModal
+    isVisible={visible}
+    onBackdropPress={onClose}
+    style={styles.actionModalWrapper}
+    animationIn="fadeIn"
+    animationOut="fadeOut"
+  >
+    <View style={styles.actionModalContainer}>
+      <View style={styles.actionModalHeader}>
+        <Image
+          source={{ 
+            uri: comment?.commenterImageUrl || 'https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150' 
+          }}
+          style={styles.actionModalAvatar}
+        />
+        <View style={styles.actionModalUserInfo}>
+          <Text variant="h6" color="primary">{comment?.commenterName}</Text>
+          <Text variant="caption" color="secondary" numberOfLines={2}>
+            {comment?.text}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.actionModalButtons}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={onDelete}
+        >
+          <MaterialIcons name="delete-outline" size={20} color={COLORS.error[600]} />
+          <Text variant="body1" color={COLORS.error[600]} style={styles.deleteButtonText}>
+            Delete Comment
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onClose}
+        >
+          <Text variant="body1" color="secondary">
+            Cancel
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </RNModal>
+);
+
+const CommentItem = React.memo(({ 
+  comment, 
+  currentUserId, 
+  isPostOwner, 
+  onLongPress 
+}) => {
+  const isCurrentUser = comment.commenterId === currentUserId;
+  const canDelete = isCurrentUser || isPostOwner;
+  const profileImage = comment.commenterImageUrl || 
+    'https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150';
+
+  const formatTime = (timestamp) => {
+    const diffMs = Date.now() - new Date(timestamp).getTime();
+    const diffMin = Math.floor(diffMs / (1000 * 60));
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m`;
+    if (diffHr < 24) return `${diffHr}h`;
+    return `${diffDay}d`;
+  };
+
+  return (
+    <Pressable
+      style={styles.commentItem}
+      onLongPress={() => canDelete && onLongPress(comment)}
+      delayLongPress={500}
+    >
+      <Image source={{ uri: profileImage }} style={styles.commentAvatar} />
+      
+      <View style={styles.commentContent}>
+        <View style={styles.commentHeader}>
+          <Text variant="label" color="primary">
+            {isCurrentUser ? 'You' : comment.commenterName || 'Anonymous'}
+          </Text>
+          <Text variant="caption" color="secondary">
+            {formatTime(comment.commentedAt)}
+          </Text>
+        </View>
+        
+        <Text variant="body2" color="primary" style={styles.commentText}>
+          {comment.text || '(No text)'}
+        </Text>
+
+        <View style={styles.commentActions}>
+          <TouchableOpacity style={styles.likeButton}>
+            <Ionicons name="heart-outline" size={16} color={COLORS.neutral[500]} />
+            <Text variant="caption" color="secondary" style={styles.likeCount}>
+              0
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity>
+            <Text variant="caption" color={COLORS.primary[600]}>
+              Reply
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
 
 const CommentsPage = ({ route }) => {
   const navigation = useNavigation();
@@ -29,7 +140,8 @@ const CommentsPage = ({ route }) => {
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
   const [userId, setUserId] = useState(null);
-  const [focusedComment, setFocusedComment] = useState(null); // Modal focus
+  const [selectedComment, setSelectedComment] = useState(null);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -45,8 +157,9 @@ const CommentsPage = ({ route }) => {
     );
   }, [initialComments]);
 
-  const handleSubmitComment = async () => {
+  const handleSubmitComment = useCallback(async () => {
     if (!commentText.trim()) return;
+    
     try {
       const newComment = await addComment(postId, userId, commentText);
       const generatedKey = `temp-${Date.now()}`;
@@ -54,7 +167,7 @@ const CommentsPage = ({ route }) => {
         ...prev,
         {
           ...newComment,
-          commenterName: 'you',
+          commenterName: 'You',
           commenterId: userId,
           commenterImageUrl: null,
           commentedAt: new Date().toISOString(),
@@ -65,282 +178,302 @@ const CommentsPage = ({ route }) => {
       setCommentText('');
     } catch (error) {
       console.error(error);
+      Alert.alert('Error', 'Failed to add comment');
     }
-  };
+  }, [commentText, postId, userId]);
 
-const handleDeleteComment = (commentId) => {
-  Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Delete',
-      style: 'destructive',
-      onPress: async () => {
-        try {
-          const response = await deleteComment(commentId);
-          console.log('Deleted:', response);
+  const handleCommentLongPress = useCallback((comment) => {
+    setSelectedComment(comment);
+    setActionModalVisible(true);
+  }, []);
 
-          // Remove from local UI
-          setComments((prev) => prev.filter((c) => c.commentId !== commentId));
-          setFocusedComment(null);
-        } catch (error) {
-          console.error('Error deleting comment:', error.message);
-          Alert.alert('Failed', 'You are not authorized to delete this comment');
-        }
-      },
-    },
-  ]);
-};
+  const handleDeleteComment = useCallback(async () => {
+    if (!selectedComment) return;
 
-  const formatTime = (timestamp) => {
-    const diffMs = Date.now() - new Date(timestamp).getTime();
-    const diffMin = Math.floor(diffMs / (1000 * 60));
-    const diffHr = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHr / 24);
+    try {
+      await deleteComment(selectedComment.commentId);
+      setComments((prev) => prev.filter((c) => c.commentId !== selectedComment.commentId));
+      setActionModalVisible(false);
+      setSelectedComment(null);
+    } catch (error) {
+      console.error('Error deleting comment:', error.message);
+      Alert.alert('Error', 'Failed to delete comment');
+    }
+  }, [selectedComment]);
 
-    if (diffMin < 1) return 'Just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffHr < 24) return `${diffHr}h ago`;
-    return `${diffDay}d ago`;
-  };
+  const renderComment = useCallback(({ item }) => (
+    <CommentItem
+      comment={item}
+      currentUserId={userId}
+      isPostOwner={false} // You can determine this based on your logic
+      onLongPress={handleCommentLongPress}
+    />
+  ), [userId, handleCommentLongPress]);
 
-  const renderComment = ({ item }) => {
-    const isCurrentUser = item.commenterId === userId;
-    const profileImage = item.commenterImageUrl || 'https://i.pravatar.cc/150?img=3';
-
-    return (
-      <TouchableOpacity
-        style={styles.commentRow}
-        activeOpacity={0.9}
-        onLongPress={() => isCurrentUser && setFocusedComment(item)}
-      >
-        <Image source={{ uri: profileImage }} style={styles.avatar} />
-        <View style={styles.textSection}>
-          <Text style={styles.username}>{isCurrentUser ? 'you' : item.commenterName || 'anonymous'}</Text>
-          <Text style={styles.commentText}>{item.text || '(No text)'}</Text>
-          <View style={styles.metaRow}>
-            <Text style={styles.time}>{formatTime(item.commentedAt)}</Text>
-            <Text style={styles.replyText}>  Reply</Text>
-          </View>
-        </View>
-        <TouchableOpacity>
-          <Feather name="heart" size={18} color="#999" style={styles.heartIcon} />
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
+  const keyExtractor = useCallback((item) => item._key, []);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
 
-      {/* Back Button and Header */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Comments</Text>
+        <Text variant="h5" color="primary" style={styles.headerTitle}>
+          Comments
+        </Text>
+        <View style={styles.headerSpacer} />
       </View>
 
+      {/* Comments List */}
       <FlatList
         data={comments}
         renderItem={renderComment}
-        keyExtractor={(item) => item._key}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.commentsList}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
       />
 
+      {/* Comment Input */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={80}
-        style={styles.inputContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <TouchableOpacity>
-          <Ionicons name="happy-outline" size={24} color="#666" style={{ marginRight: 10 }} />
-        </TouchableOpacity>
-        <TextInput
-          value={commentText}
-          onChangeText={setCommentText}
-          placeholder="Add a comment..."
-          placeholderTextColor="#999"
-          style={styles.input}
-        />
-        <TouchableOpacity onPress={handleSubmitComment} style={styles.sendBtn}>
-          <Ionicons name="send" size={18} color="#fff" />
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-
-      {/* Modal for Focused Comment */}
-      <Modal visible={!!focusedComment} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Image
-              source={{
-                uri: focusedComment?.commenterImageUrl || 'https://i.pravatar.cc/150?img=3',
-              }}
-              style={styles.modalAvatar}
-            />
-            <Text style={styles.modalUsername}>{focusedComment?.commenterName || 'you'}</Text>
-            <Text style={styles.modalText}>{focusedComment?.text}</Text>
-            <TouchableOpacity
-              onPress={() => handleDeleteComment(focusedComment.commentId)}
-              style={styles.modalDeleteBtn}
-            >
-              <Feather name="trash-2" size={20} color="#d00" />
-              <Text style={styles.modalDeleteText}>Delete</Text>
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TouchableOpacity style={styles.emojiButton}>
+              <Ionicons name="happy-outline" size={24} color={COLORS.neutral[500]} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setFocusedComment(null)}>
-              <Text style={styles.modalClose}>Close</Text>
+            
+            <TextInput
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder="Add a comment..."
+              placeholderTextColor={COLORS.neutral[400]}
+              style={styles.textInput}
+              multiline
+              maxLength={500}
+            />
+            
+            <TouchableOpacity
+              onPress={handleSubmitComment}
+              style={[
+                styles.sendButton,
+                commentText.trim() && styles.sendButtonActive
+              ]}
+              disabled={!commentText.trim()}
+            >
+              <Ionicons 
+                name="send" 
+                size={20} 
+                color={commentText.trim() ? COLORS.primary[600] : COLORS.neutral[400]} 
+              />
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+
+      {/* Comment Action Modal */}
+      <CommentActionModal
+        visible={actionModalVisible}
+        onClose={() => setActionModalVisible(false)}
+        onDelete={handleDeleteComment}
+        comment={selectedComment}
+      />
     </SafeAreaView>
   );
 };
 
-export default CommentsPage;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
   },
-header: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingHorizontal: 14,
-  paddingBottom: 10,
-  borderBottomWidth: 1,
-  borderColor: '#eee',
-  backgroundColor: '#fff',
-},
-  headerText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  commentRow: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neutral[100],
+    backgroundColor: COLORS.white,
+    ...SHADOWS.sm,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
+  backButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: COLORS.neutral[50],
   },
-  textSection: {
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  commentsList: {
+    paddingVertical: SPACING.sm,
+    paddingBottom: 100,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.xs,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+  },
+  commentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[200],
+  },
+  commentContent: {
     flex: 1,
   },
-  username: {
-    fontWeight: '600',
-    color: '#000',
-    fontSize: 14,
-    marginBottom: 2,
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
   },
   commentText: {
-    fontSize: 14,
-    color: '#222',
-    marginBottom: 4,
+    marginBottom: SPACING.sm,
+    lineHeight: 20,
   },
-  metaRow: {
+  commentActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
-  time: {
-    fontSize: 12,
-    color: '#999',
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SPACING.lg,
   },
-  replyText: {
-    fontSize: 12,
-    color: '#555',
-    marginLeft: 10,
-  },
-  heartIcon: {
-    marginLeft: 8,
-    marginTop: 2,
+  likeCount: {
+    marginLeft: SPACING.xs,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    backgroundColor: COLORS.white,
     borderTopWidth: 1,
-    borderColor: '#eee',
-    backgroundColor: '#fff',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    borderTopColor: COLORS.neutral[100],
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    ...SHADOWS.sm,
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: COLORS.neutral[50],
+    borderRadius: 24,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    minHeight: 48,
+  },
+  emojiButton: {
+    padding: SPACING.sm,
+  },
+  textInput: {
     flex: 1,
-    backgroundColor: '#f1f1f1',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: '#000',
+    fontSize: 16,
+    color: COLORS.text.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    maxHeight: 100,
   },
-  sendBtn: {
-    marginLeft: 10,
-    backgroundColor: '#000',
+  sendButton: {
+    padding: SPACING.sm,
     borderRadius: 20,
-    padding: 8,
+  },
+  sendButtonActive: {
+    backgroundColor: COLORS.primary[50],
   },
 
-  // Modal Focused Comment
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+  // Action Modal Styles
+  actionModalWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+  actionModalContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: SPACING.lg,
     width: '85%',
-    alignItems: 'center',
+    ...SHADOWS.xl,
   },
-  modalAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 10,
-  },
-  modalUsername: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  modalText: {
-    fontSize: 14,
-    color: '#222',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  modalDeleteBtn: {
+  actionModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffe6e6',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: SPACING.lg,
   },
-  modalDeleteText: {
-    color: '#d00',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
+  actionModalAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[200],
   },
-  modalClose: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 6,
+  actionModalUserInfo: {
+    flex: 1,
+  },
+  actionModalButtons: {
+    gap: SPACING.sm,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.error[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.error[200],
+  },
+  deleteButtonText: {
+    marginLeft: SPACING.sm,
+  },
+  cancelButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.neutral[50],
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  // Tab Bar Icon Styles
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 32,
+    height: 32,
+  },
+  focusedIconContainer: {
+    backgroundColor: COLORS.primary[50],
+    borderRadius: 16,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary[600],
   },
 });
+
+export default CommentsPage;

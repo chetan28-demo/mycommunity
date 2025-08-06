@@ -1,19 +1,33 @@
-
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Platform } from 'react-native';
-import {
-  MaterialCommunityIcons,
-  Ionicons,
-  Feather,
-} from '@expo/vector-icons';
+import { View, Platform, StyleSheet } from 'react-native';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import HomeScreen from '../Screens/HomePage/Home';
 import ProfileScreen from '../Screens/ProfilePage/Profile';
 import Explore from '../Screens/ExplorePage/Explore';
 import Marriage from '../Screens/MarriagePage/Marriage';
 import { useTranslation } from 'react-i18next';
+import { Text } from './UI';
+import { COLORS, SPACING, SHADOWS } from '../theme';
 
 const Tab = createBottomTabNavigator();
+
+const TabIcon = ({ name, size, color, focused, type = 'Ionicons' }) => {
+  const IconComponent = type === 'MaterialCommunityIcons' ? MaterialCommunityIcons :
+                       type === 'Feather' ? Feather : Ionicons;
+  
+  return (
+    <View style={[styles.iconContainer, focused && styles.focusedIconContainer]}>
+      <IconComponent 
+        name={name} 
+        size={focused ? size + 2 : size} 
+        color={color} 
+      />
+      {focused && <View style={styles.activeIndicator} />}
+    </View>
+  );
+};
 
 const TabNavigator = () => {
   const { t } = useTranslation();
@@ -22,35 +36,19 @@ const TabNavigator = () => {
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={{
-        tabBarActiveTintColor: '#242526',
-        tabBarInactiveTintColor: '#999',
-        tabBarHideOnKeyboard: true, // ✅ Hide tab bar when keyboard opens
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 10,
-          height: 65,
-          paddingBottom: 8,
-          paddingTop: 5,
-          borderTopLeftRadius: 25,
-          borderTopRightRadius: 25,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: -3,
-          },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          borderTopWidth: 0,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
         headerShown: false,
+        tabBarActiveTintColor: COLORS.primary[600],
+        tabBarInactiveTintColor: COLORS.neutral[500],
+        tabBarHideOnKeyboard: true,
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarBackground: () => (
+          Platform.OS === 'ios' ? (
+            <BlurView intensity={100} style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.white }]} />
+          )
+        ),
       }}
     >
       <Tab.Screen
@@ -59,10 +57,12 @@ const TabNavigator = () => {
         options={{
           title: t("tabs.Home"),
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons
+            <TabIcon
               name={focused ? "home" : "home-outline"}
+              size={24}
               color={color}
-              size={focused ? 28 : 24}
+              focused={focused}
+              type="MaterialCommunityIcons"
             />
           ),
         }}
@@ -74,10 +74,12 @@ const TabNavigator = () => {
         options={{
           title: t("tabs.Explore"),
           tabBarIcon: ({ color, focused }) => (
-            <Feather
-              name="plus-square"
+            <TabIcon
+              name="plus-circle"
+              size={24}
               color={color}
-              size={focused ? 26 : 22}
+              focused={focused}
+              type="Feather"
             />
           ),
         }}
@@ -89,19 +91,12 @@ const TabNavigator = () => {
         options={{
           title: t("tabs.Marriage"),
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                borderRadius: 16,
-                backgroundColor: focused ? 'rgba(36, 37, 38, 0.08)' : 'transparent',
-                padding: 4,
-              }}
-            >
-              <Ionicons
-                name={focused ? "people" : "people-outline"}
-                color={color}
-                size={focused ? 28 : 24}
-              />
-            </View>
+            <TabIcon
+              name={focused ? "people" : "people-outline"}
+              size={24}
+              color={color}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -112,10 +107,11 @@ const TabNavigator = () => {
         options={{
           title: t("tabs.Profile"),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
+            <TabIcon
               name={focused ? "person" : "person-outline"}
+              size={24}
               color={color}
-              size={focused ? 26 : 22}
+              focused={focused}
             />
           ),
         }}
@@ -123,5 +119,43 @@ const TabNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 85 : 70,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    paddingTop: 10,
+    borderTopWidth: 0,
+    backgroundColor: Platform.OS === 'ios' ? 'transparent' : COLORS.white,
+    ...SHADOWS.lg,
+  },
+  tabBarLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 32,
+    height: 32,
+  },
+  focusedIconContainer: {
+    backgroundColor: COLORS.primary[50],
+    borderRadius: 16,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary[600],
+  },
+});
 
 export default TabNavigator;

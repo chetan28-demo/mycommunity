@@ -1,16 +1,55 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, StyleSheet, Dimensions, Animated } from 'react-native';
+import { 
+  View, 
+  Image, 
+  TouchableOpacity, 
+  FlatList, 
+  StyleSheet, 
+  Dimensions, 
+  Animated 
+} from 'react-native';
 import { Linking } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Text } from '../UI';
+import { COLORS, SPACING, SHADOWS } from '../../theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+const BannerItem = React.memo(({ item, index, totalItems, onPress }) => (
+  <TouchableOpacity 
+    style={styles.bannerContainer} 
+    onPress={() => onPress(item.websiteUrl)}
+    activeOpacity={0.95}
+  >
+    <Image 
+      source={{ uri: item.imageUrl }} 
+      style={styles.bannerImage} 
+      resizeMode="cover" 
+    />
+    <LinearGradient
+      colors={['transparent', 'rgba(0,0,0,0.7)']}
+      style={styles.gradient}
+    >
+      <View style={styles.textOverlay}>
+        <Text variant="h6" color="inverse" style={styles.headline}>
+          {item.headline}
+        </Text>
+      </View>
+      <View style={styles.carouselCounter}>
+        <Text variant="caption" color="inverse" style={styles.counterText}>
+          {index + 1} / {totalItems}
+        </Text>
+      </View>
+    </LinearGradient>
+  </TouchableOpacity>
+));
+
 const Banner = () => {
   const [banners, setBanners] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
-  const currentIndexRef = useRef(0);
 
-  // Fetch banners from API
   const fetchBanners = useCallback(async () => {
     try {
       const response = await fetch('http://192.168.1.116:3000/banner');
@@ -27,48 +66,48 @@ const Banner = () => {
     fetchBanners();
   }, [fetchBanners]);
 
-  // Auto-scroll effect with proper cleanup
+  // Auto-scroll effect
   useEffect(() => {
     if (banners.length <= 1) return;
 
     const interval = setInterval(() => {
       if (flatListRef.current) {
-        currentIndexRef.current = (currentIndexRef.current + 1) % banners.length;
+        const nextIndex = (currentIndex + 1) % banners.length;
+        setCurrentIndex(nextIndex);
         flatListRef.current.scrollToIndex({ 
-          index: currentIndexRef.current, 
+          index: nextIndex, 
           animated: true 
         });
       }
-    }, 8000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners.length, currentIndex]);
 
-  // Handle Banner Press
   const handleBannerPress = useCallback((url) => {
     if (url) {
       Linking.openURL(url).catch((err) => console.error('Error opening URL:', err));
     }
   }, []);
 
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { 
+      useNativeDriver: false,
+      listener: (event) => {
+        const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+        setCurrentIndex(index);
+      }
+    }
+  );
+
   const renderBanner = useCallback(({ item, index }) => (
-    <TouchableOpacity 
-      style={styles.bannerContainer} 
-      onPress={() => handleBannerPress(item.websiteUrl)}
-      activeOpacity={0.9}
-    >
-      <Image 
-        source={{ uri: item.imageUrl }} 
-        style={styles.bannerImage} 
-        resizeMode="cover" 
-      />
-      <View style={styles.textOverlay}>
-        <Text style={styles.headline}>{item.headline}</Text>
-      </View>
-      <View style={styles.carouselCounter}>
-        <Text style={styles.counterText}>{index + 1}/{banners.length}</Text>
-      </View>
-    </TouchableOpacity>
+    <BannerItem
+      item={item}
+      index={index}
+      totalItems={banners.length}
+      onPress={handleBannerPress}
+    />
   ), [banners.length, handleBannerPress]);
 
   const keyExtractor = useCallback((item, index) => index.toString(), []);
@@ -80,24 +119,62 @@ const Banner = () => {
     });
   }, []);
 
+  if (banners.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
-      {banners.length > 0 ? (
-        <FlatList
-          ref={flatListRef}
-          data={banners}
-          keyExtractor={keyExtractor}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          renderItem={renderBanner}
-          onScrollToIndexFailed={onScrollToIndexFailed}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-        />
-      ) : (
-        <Text style={styles.noDataText}>No banners available</Text>
+      <FlatList
+        ref={flatListRef}
+        data={banners}
+        keyExtractor={keyExtractor}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        renderItem={renderBanner}
+        onScrollToIndexFailed={onScrollToIndexFailed}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+      />
+      
+      {/* Pagination Dots */}
+      {banners.length > 1 && (
+        <View style={styles.pagination}>
+          {banners.map((_, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.paginationDot,
+                {
+                  opacity: scrollX.interpolate({
+                    inputRange: [
+                      (index - 1) * screenWidth,
+                      index * screenWidth,
+                      (index + 1) * screenWidth,
+                    ],
+                    outputRange: [0.3, 1, 0.3],
+                    extrapolate: 'clamp',
+                  }),
+                  transform: [{
+                    scale: scrollX.interpolate({
+                      inputRange: [
+                        (index - 1) * screenWidth,
+                        index * screenWidth,
+                        (index + 1) * screenWidth,
+                      ],
+                      outputRange: [0.8, 1.2, 0.8],
+                      extrapolate: 'clamp',
+                    }),
+                  }],
+                },
+              ]}
+            />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -105,62 +182,61 @@ const Banner = () => {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 15,
-    alignItems: 'center',
+    marginVertical: SPACING.lg,
   },
   bannerContainer: {
-    width: screenWidth - 40,
-    height: 240,
-    borderRadius: 15,
-    backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    width: screenWidth - (SPACING.md * 2),
+    height: 200,
+    borderRadius: 16,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: SPACING.md,
+    ...SHADOWS.md,
   },
   bannerImage: {
-    width: '92%',
-    height: '92%',
-    borderRadius: 10,
+    width: '100%',
+    height: '100%',
+  },
+  gradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    justifyContent: 'flex-end',
   },
   textOverlay: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingVertical: 5,
-    borderRadius: 5,
+    padding: SPACING.md,
   },
   headline: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   carouselCounter: {
     position: 'absolute',
-    top: 10,
-    right: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 15,
+    top: SPACING.md,
+    right: SPACING.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 12,
   },
   counterText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  noDataText: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 16,
-    marginTop: 20,
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary[600],
+    marginHorizontal: 4,
   },
 });
 

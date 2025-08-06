@@ -1,25 +1,64 @@
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Image,
   Dimensions,
   TouchableOpacity,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { Text, Card, Button } from "../UI";
+import { COLORS, SPACING, SHADOWS } from "../../theme";
 
 const { width } = Dimensions.get("window");
 
-const DetailRow = React.memo(({ icon, label, value }) => (
-  <View style={styles.detailsRow}>
-    <Ionicons name={icon} size={20} color="#555" />
-    <Text style={styles.detailsLabel}>{label}:</Text>
-    <Text style={styles.detailsValue}>{value}</Text>
+const DetailRow = React.memo(({ icon, label, value, color = COLORS.neutral[600] }) => (
+  <View style={styles.detailRow}>
+    <View style={styles.detailIcon}>
+      <Ionicons name={icon} size={18} color={color} />
+    </View>
+    <Text variant="caption" color="secondary" style={styles.detailLabel}>
+      {label}
+    </Text>
+    <Text variant="body2" color="primary" style={styles.detailValue}>
+      {value}
+    </Text>
   </View>
 ));
+
+const ImageCarousel = React.memo(({ images, onIndexChange }) => {
+  const renderImage = useCallback(({ item }) => (
+    <Image source={{ uri: item }} style={styles.carouselImage} />
+  ), []);
+
+  const keyExtractor = useCallback((item, index) => `${item}-${index}`, []);
+
+  const onScroll = useCallback((event) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(contentOffsetX / width);
+    onIndexChange(newIndex);
+  }, [onIndexChange]);
+
+  return (
+    <FlatList
+      data={images}
+      horizontal
+      keyExtractor={keyExtractor}
+      showsHorizontalScrollIndicator={false}
+      renderItem={renderImage}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      pagingEnabled
+      snapToInterval={width}
+      decelerationRate="fast"
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={3}
+      windowSize={5}
+    />
+  );
+});
 
 const MarriageCard = ({ match }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -29,196 +68,202 @@ const MarriageCard = ({ match }) => {
   const isSingleImage = useMemo(() => match.images?.length === 1, [match.images]);
   const totalImages = useMemo(() => match.images?.length || 0, [match.images]);
 
-  const handleScroll = useCallback((event) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(contentOffsetX / width);
-    setCurrentIndex(newIndex);
-  }, []);
-
   const handleViewProfile = useCallback(() => {
     console.log("Navigating with userId:", match.id);
     navigation.navigate("userprofile", { userId: match.id });
   }, [match.id, navigation]);
 
-  const renderImage = useCallback(({ item }) => (
-    <Image source={{ uri: item }} style={styles.carouselImage} />
-  ), []);
-
-  const keyExtractor = useCallback((item, index) => `${item}-${index}`, []);
-
-  const getItemLayout = useCallback((data, index) => ({
-    length: width,
-    offset: width * index,
-    index,
-  }), []);
+  const handleIndexChange = useCallback((index) => {
+    setCurrentIndex(index);
+  }, []);
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card} shadow="medium">
       {/* Image Section */}
-      {imagesAvailable ? (
-        isSingleImage ? (
-          <Image source={{ uri: match.images[0] }} style={styles.fullImage} />
-        ) : (
-          <View style={styles.carouselContainer}>
-            <FlatList
-              data={match.images}
-              horizontal
-              keyExtractor={keyExtractor}
-              showsHorizontalScrollIndicator={false}
-              renderItem={renderImage}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              pagingEnabled
-              snapToInterval={width}
-              decelerationRate="fast"
-              getItemLayout={getItemLayout}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={3}
-              windowSize={5}
-            />
-            <View style={styles.imageCount}>
-              <Text style={styles.imageCountText}>
-                {currentIndex + 1}/{totalImages}
-              </Text>
+      <View style={styles.imageContainer}>
+        {imagesAvailable ? (
+          isSingleImage ? (
+            <Image source={{ uri: match.images[0] }} style={styles.singleImage} />
+          ) : (
+            <View style={styles.carouselContainer}>
+              <ImageCarousel 
+                images={match.images} 
+                onIndexChange={handleIndexChange}
+              />
+              <View style={styles.imageCounter}>
+                <Text variant="caption" color="inverse" style={styles.imageCounterText}>
+                  {currentIndex + 1} / {totalImages}
+                </Text>
+              </View>
             </View>
+          )
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Ionicons name="person" size={48} color={COLORS.neutral[400]} />
+            <Text variant="caption" color="secondary">
+              No photo available
+            </Text>
           </View>
-        )
-      ) : (
-        <Image
-          source={{
-            uri: "https://dummyimage.com/600x400/cccccc/000000&text=No+Image",
-          }}
-          style={styles.fullImage}
-        />
-      )}
-
-      {/* Details */}
-      <View style={styles.cardDetails}>
-        <DetailRow 
-          icon="person-outline" 
-          label="Name" 
-          value={`${match.firstname} ${match.lastName}`} 
-        />
-        <DetailRow icon="calendar-outline" label="Age" value={match.age} />
-        <DetailRow icon="male-female" label="Gender" value={match.gender} />
-        <DetailRow 
-          icon="checkmark-circle-outline" 
-          label="Status" 
-          value={match.maritalStatus} 
-        />
+        )}
       </View>
 
-      {/* Buttons */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.viewProfileButton}
-          onPress={handleViewProfile}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="eye" size={18} color="#000" />
-          <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity>
+      {/* Profile Info */}
+      <View style={styles.profileInfo}>
+        <View style={styles.nameContainer}>
+          <Text variant="h5" color="primary" style={styles.name}>
+            {match.firstname} {match.lastName}
+          </Text>
+          <View style={styles.verifiedBadge}>
+            <Ionicons name="checkmark-circle" size={16} color={COLORS.success[500]} />
+          </View>
+        </View>
 
-        <TouchableOpacity style={styles.addButton} activeOpacity={0.8}>
-          <Ionicons name="person-add" size={18} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.detailsContainer}>
+          <DetailRow 
+            icon="calendar-outline" 
+            label="Age" 
+            value={`${match.age} years`}
+            color={COLORS.primary[600]}
+          />
+          <DetailRow 
+            icon="person-outline" 
+            label="Gender" 
+            value={match.gender}
+            color={COLORS.secondary[600]}
+          />
+          <DetailRow 
+            icon="heart-outline" 
+            label="Status" 
+            value={match.maritalStatus}
+            color={COLORS.accent[600]}
+          />
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionRow}>
+          <Button
+            variant="outline"
+            onPress={handleViewProfile}
+            style={styles.viewButton}
+          >
+            <Ionicons name="eye-outline" size={18} color={COLORS.primary[600]} />
+            View Profile
+          </Button>
+
+          <TouchableOpacity style={styles.favoriteButton} activeOpacity={0.8}>
+            <Ionicons name="heart-outline" size={20} color={COLORS.error[500]} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.messageButton} activeOpacity={0.8}>
+            <Ionicons name="chatbubble-outline" size={20} color={COLORS.primary[600]} />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    marginVertical: 16,
-    marginHorizontal: 12,
-    borderRadius: 18,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.md,
+    overflow: 'hidden',
+    padding: 0,
   },
-  fullImage: {
-    width: "100%",
+  imageContainer: {
+    position: 'relative',
     height: width * 0.6,
-    resizeMode: "cover",
+    backgroundColor: COLORS.neutral[100],
+  },
+  singleImage: {
+    width: '100%',
+    height: '100%',
   },
   carouselContainer: {
-    position: "relative",
+    position: 'relative',
+    height: '100%',
   },
   carouselImage: {
     width,
-    height: width * 0.6,
-    resizeMode: "cover",
+    height: '100%',
+    resizeMode: 'cover',
   },
-  imageCount: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    backgroundColor: "#000000aa",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  placeholderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.neutral[100],
+  },
+  imageCounter: {
+    position: 'absolute',
+    top: SPACING.md,
+    right: SPACING.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 16,
+  },
+  imageCounterText: {
+    fontWeight: '600',
+  },
+  profileInfo: {
+    padding: SPACING.lg,
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  name: {
+    flex: 1,
+  },
+  verifiedBadge: {
+    marginLeft: SPACING.sm,
+  },
+  detailsContainer: {
+    marginBottom: SPACING.lg,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  detailIcon: {
+    width: 24,
+    alignItems: 'center',
+  },
+  detailLabel: {
+    marginLeft: SPACING.sm,
+    minWidth: 60,
+  },
+  detailValue: {
+    marginLeft: SPACING.sm,
+    fontWeight: '600',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  viewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteButton: {
+    backgroundColor: COLORS.error[50],
+    padding: SPACING.md,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.error[200],
   },
-  imageCountText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  cardDetails: {
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    backgroundColor: "#fff",
-  },
-  detailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  detailsLabel: {
-    marginLeft: 8,
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
-  },
-  detailsValue: {
-    marginLeft: 6,
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#000",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  viewProfileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 30,
-    borderColor: "#000",
-    borderWidth: 1.3,
-  },
-  addButton: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 30,
-    borderWidth: 1.3,
-    borderColor: "#000",
-  },
-  buttonText: {
-    marginLeft: 6,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000",
+  messageButton: {
+    backgroundColor: COLORS.primary[50],
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary[200],
   },
 });
 

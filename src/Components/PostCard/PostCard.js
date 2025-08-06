@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -9,31 +8,36 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
-  Modal,
-  Pressable,
   ScrollView,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   BackHandler,
+  Pressable,
 } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AntDesign } from "@expo/vector-icons";
 import RNModal from "react-native-modal";
+import { Text, Card, Button } from "../UI";
+import { COLORS, SPACING, SHADOWS } from "../../theme";
 
 const screenWidth = Dimensions.get("window").width;
 const MAX_CONTENT_LINES = 3;
 
 // Memoized components for better performance
-const PostHeader = React.memo(({ uploadedBy }) => (
+const PostHeader = React.memo(({ uploadedBy, uploadedAt }) => (
   <View style={styles.header}>
     <Image
-      source={{ uri: "https://randomuser.me/api/portraits/men/1.jpg" }}
+      source={{ uri: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150" }}
       style={styles.profileImage}
     />
-    <Text style={styles.username}>{uploadedBy || "Unknown"}</Text>
+    <View style={styles.headerText}>
+      <Text variant="h6" color="primary">{uploadedBy || "Unknown"}</Text>
+      <Text variant="caption" color="secondary">
+        {new Date(uploadedAt).toLocaleDateString()}
+      </Text>
+    </View>
   </View>
 ));
 
@@ -45,21 +49,27 @@ const PostActions = React.memo(({
   onComment 
 }) => (
   <View style={styles.actions}>
-    <TouchableOpacity onPress={onLike}>
-      <AntDesign
-        name={isLiked ? "heart" : "hearto"}
+    <TouchableOpacity onPress={onLike} style={styles.actionButton}>
+      <Ionicons
+        name={isLiked ? "heart" : "heart-outline"}
         size={24}
-        color={isLiked ? "red" : "black"}
-        style={styles.icon}
+        color={isLiked ? COLORS.error[500] : COLORS.neutral[600]}
       />
-    </TouchableOpacity>
-    <Text style={styles.countText}>{totalLikes} Likes</Text>
-
-    <TouchableOpacity onPress={onComment} style={styles.commentButton}>
-      <Icon name="message-circle" size={24} color="black" />
+      <Text variant="caption" color="secondary" style={styles.actionText}>
+        {totalLikes}
+      </Text>
     </TouchableOpacity>
 
-    <Text style={styles.countText}>{totalComments} Comments</Text>
+    <TouchableOpacity onPress={onComment} style={styles.actionButton}>
+      <Ionicons name="chatbubble-outline" size={24} color={COLORS.neutral[600]} />
+      <Text variant="caption" color="secondary" style={styles.actionText}>
+        {totalComments}
+      </Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.actionButton}>
+      <Ionicons name="share-outline" size={24} color={COLORS.neutral[600]} />
+    </TouchableOpacity>
   </View>
 ));
 
@@ -67,102 +77,90 @@ const PostContent = React.memo(({
   content, 
   isExpanded, 
   onToggleExpand, 
-  tags, 
-  uploadedAt 
+  tags 
 }) => (
-  <>
-    <View style={styles.captionContainer}>
-      <Text
-        numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
-        style={styles.caption}
-      >
-        {content}
-      </Text>
-      {content.length > 100 && (
-        <TouchableOpacity onPress={onToggleExpand}>
-          <Text style={styles.viewMoreText}>
-            {isExpanded ? "View Less" : "View More"}
-          </Text>
-        </TouchableOpacity>
-      )}
-    </View>
+  <View style={styles.contentContainer}>
+    <Text
+      variant="body1"
+      numberOfLines={isExpanded ? undefined : MAX_CONTENT_LINES}
+      style={styles.content}
+    >
+      {content}
+    </Text>
+    
+    {content.length > 150 && (
+      <TouchableOpacity onPress={onToggleExpand}>
+        <Text variant="caption" color={COLORS.primary[600]} style={styles.viewMoreText}>
+          {isExpanded ? "Show less" : "Show more"}
+        </Text>
+      </TouchableOpacity>
+    )}
 
     {tags?.length > 0 && (
       <View style={styles.tagsContainer}>
         {tags.map((tag, index) => (
-          <Text key={index} style={styles.tag}>
-            #{tag}
-          </Text>
+          <View key={index} style={styles.tag}>
+            <Text variant="caption" color={COLORS.primary[600]}>
+              #{tag}
+            </Text>
+          </View>
         ))}
       </View>
     )}
-
-    <Text style={styles.timestamp}>
-      Posted on {new Date(uploadedAt).toLocaleDateString()}
-    </Text>
-  </>
+  </View>
 ));
 
 const CommentItem = React.memo(({ 
   comment, 
   currentUserId, 
   isPostOwner, 
-  onReply, 
-  onDelete,
+  onLongPress,
   visibleReplies,
   onToggleReplies,
   renderReplies 
 }) => (
-  <View style={styles.commentBlock}>
-    <View style={styles.commentHeader}>
-      <Image
-        source={{ uri: "https://randomuser.me/api/portraits/men/10.jpg" }}
-        style={styles.commentUserImage}
-      />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.commentUser}>{comment.commenterName}</Text>
-        <Text style={styles.commentText}>{comment.text}</Text>
-        <Text style={styles.commentTime}>
-          {new Date(comment.commentedAt).toLocaleString()}
-        </Text>
+  <Pressable 
+    style={styles.commentItem}
+    onLongPress={() => onLongPress(comment)}
+    delayLongPress={500}
+  >
+    <Image
+      source={{ uri: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150" }}
+      style={styles.commentAvatar}
+    />
+    <View style={styles.commentContent}>
+      <Text variant="label" color="primary">{comment.commenterName}</Text>
+      <Text variant="body2" color="primary" style={styles.commentText}>
+        {comment.text}
+      </Text>
+      <Text variant="caption" color="secondary" style={styles.commentTime}>
+        {new Date(comment.commentedAt).toLocaleString()}
+      </Text>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <TouchableOpacity onPress={() => onReply(comment.commentId, comment.commenterName)}>
-            <Text style={styles.replyBtn}>Reply</Text>
-          </TouchableOpacity>
+      {comment.replies && comment.replies.length > 0 && (
+        <>
+          {visibleReplies[comment.commentId]
+            ? renderReplies(comment.replies)
+            : renderReplies([comment.replies[0]])}
 
-          {(comment.commenterId === currentUserId || isPostOwner) && (
-            <TouchableOpacity onPress={() => onDelete(comment.commentId)}>
-              <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
+          {comment.replies.length > 1 && (
+            <TouchableOpacity
+              onPress={() => onToggleReplies(comment.commentId)}
+              style={styles.viewRepliesButton}
+            >
+              <Text variant="caption" color={COLORS.primary[600]}>
+                {visibleReplies[comment.commentId]
+                  ? "Hide replies"
+                  : `View ${comment.replies.length - 1} more repl${
+                      comment.replies.length - 1 === 1 ? "y" : "ies"
+                    }`}
+              </Text>
             </TouchableOpacity>
           )}
-        </View>
-
-        {comment.replies && comment.replies.length > 0 && (
-          <>
-            {visibleReplies[comment.commentId]
-              ? renderReplies(comment.replies)
-              : renderReplies([comment.replies[0]])}
-
-            {comment.replies.length > 1 && (
-              <TouchableOpacity
-                onPress={() => onToggleReplies(comment.commentId)}
-                style={{ marginTop: 5, marginLeft: 20 }}
-              >
-                <Text style={{ color: "#6200ee", fontSize: 13 }}>
-                  {visibleReplies[comment.commentId]
-                    ? "Hide Replies"
-                    : `View ${comment.replies.length - 1} more repl${
-                        comment.replies.length - 1 === 1 ? "y" : "ies"
-                      }`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-      </View>
+        </>
+      )}
     </View>
-  </View>
+  </Pressable>
 ));
 
 const PostCard = ({ activeCategory }) => {
@@ -179,22 +177,13 @@ const PostCard = ({ activeCategory }) => {
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState("");
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [replyToUser, setReplyToUser] = useState(null);
+  const [selectedComment, setSelectedComment] = useState(null);
+  const [commentActionModal, setCommentActionModal] = useState(false);
 
-  // Memoized API base URL
   const API_BASE = useMemo(() => "http://192.168.1.116:8080/api/users", []);
-
-  const toggleReplies = useCallback((commentId) => {
-    setVisibleReplies((prev) => ({
-      ...prev,
-      [commentId]: !prev[commentId],
-    }));
-  }, []);
 
   const fetchCurrentUserId = useCallback(async () => {
     const id = await AsyncStorage.getItem("userId");
-    console.log("👤 Current logged-in user ID:", id);
     setCurrentUserId(Number(id));
   }, []);
 
@@ -241,158 +230,6 @@ const PostCard = ({ activeCategory }) => {
     fetchPosts();
   }, [fetchPosts]);
 
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (commentModalVisible) {
-          setCommentModalVisible(false);
-          return true;
-        }
-        return false;
-      }
-    );
-
-    return () => backHandler.remove();
-  }, [commentModalVisible]);
-
-  const flattenReplies = useCallback((replies) => {
-    const flat = [];
-    const recurse = (arr) => {
-      for (const reply of arr) {
-        flat.push(reply);
-        if (reply.replies && reply.replies.length > 0) {
-          recurse(reply.replies);
-        }
-      }
-    };
-    recurse(replies);
-    return flat;
-  }, []);
-
-  const isPostOwner = useCallback(() => {
-    if (!selectedPost || !currentUserId) return false;
-    return selectedPost.uploaderId === currentUserId;
-  }, [selectedPost, currentUserId]);
-
-  const renderReplies = useCallback((replies) => {
-    return replies.map((reply, index) => (
-      <View
-        key={reply.replyId || index}
-        style={{ marginTop: 10, marginLeft: 20 }}
-      >
-        <View style={styles.commentHeader}>
-          <Image
-            source={{ uri: "https://i.pravatar.cc/150?img=3" }}
-            style={styles.commentUserImage}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.commentUser}>{reply.replierName}</Text>
-            <Text style={styles.commentText}>
-              <Text style={{ fontWeight: "bold", color: "#333" }}>
-                @{reply.repliedToName}
-              </Text>{" "}
-              {reply.text}
-            </Text>
-            <Text style={styles.commentTime}>
-              {new Date(reply.repliedAt).toLocaleString()}
-            </Text>
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setReplyingTo(reply.replyId);
-                  setReplyToUser(reply.replierName);
-                }}
-              >
-                <Text style={styles.replyBtn}>Reply</Text>
-              </TouchableOpacity>
-
-              {(reply.replierId === currentUserId || isPostOwner()) && (
-                <TouchableOpacity
-                  onPress={() => handleDeleteCommentOrReply(reply.replyId)}
-                >
-                  <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-      </View>
-    ));
-  }, [currentUserId, isPostOwner, replyingTo, replyToUser]);
-
-  const handleDeleteCommentOrReply = useCallback(async (id) => {
-    const token = await AsyncStorage.getItem("token");
-
-    try {
-      const res = await fetch(`${API_BASE}/comment/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.log("✅ Deleted:", data);
-        fetchComments(selectedPostId);
-      } else {
-        console.warn("❌ Delete failed:", data);
-      }
-    } catch (err) {
-      console.error("🔥 Error deleting:", err);
-    }
-  }, [API_BASE, selectedPostId]);
-
-  const handleAddComment = useCallback(async () => {
-    if (!newComment.trim()) {
-      console.log("🚫 Empty comment, skipping post.");
-      return;
-    }
-
-    const token = await AsyncStorage.getItem("token");
-    const userId = await AsyncStorage.getItem("userId");
-
-    const endpoint = replyingTo
-      ? `${API_BASE}/reply/${replyingTo}`
-      : `${API_BASE}/comment/${selectedPostId}`;
-
-    const bodyData = replyingTo
-      ? {
-          userId: Number(userId),
-          text: newComment.trim(),
-          repliedToUser: replyToUser,
-        }
-      : { text: newComment.trim(), parentCommentId: null };
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bodyData),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.log("✅ Posted successfully:", data);
-        setNewComment("");
-        setReplyingTo(null);
-        setReplyToUser(null);
-        fetchComments(selectedPostId);
-      } else {
-        console.warn("❌ Post failed:", data);
-      }
-    } catch (err) {
-      console.error("🔥 Network error while posting comment:", err);
-    }
-  }, [newComment, replyingTo, replyToUser, selectedPostId, API_BASE]);
-
   const fetchComments = useCallback(async (postId) => {
     try {
       setLoadingComments(true);
@@ -409,17 +246,11 @@ const PostCard = ({ activeCategory }) => {
       setComments(data.comments || []);
       setSelectedPost(data);
     } catch (error) {
-      console.error("❌ Error fetching comments:", error);
+      console.error("Error fetching comments:", error);
     } finally {
       setLoadingComments(false);
     }
   }, [API_BASE]);
-
-  const openCommentsModal = useCallback((postId) => {
-    setSelectedPostId(postId);
-    setCommentModalVisible(true);
-    fetchComments(postId);
-  }, [fetchComments]);
 
   const handleLike = useCallback(async (postId) => {
     try {
@@ -455,6 +286,67 @@ const PostCard = ({ activeCategory }) => {
     }
   }, [API_BASE]);
 
+  const openCommentsModal = useCallback((postId) => {
+    setSelectedPostId(postId);
+    setCommentModalVisible(true);
+    fetchComments(postId);
+  }, [fetchComments]);
+
+  const handleCommentLongPress = useCallback((comment) => {
+    const canDelete = comment.commenterId === currentUserId || 
+                     (selectedPost && selectedPost.uploaderId === currentUserId);
+    
+    if (canDelete) {
+      setSelectedComment(comment);
+      setCommentActionModal(true);
+    }
+  }, [currentUserId, selectedPost]);
+
+  const handleDeleteComment = useCallback(async () => {
+    if (!selectedComment) return;
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/comment/${selectedComment.commentId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        fetchComments(selectedPostId);
+        setCommentActionModal(false);
+        setSelectedComment(null);
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
+  }, [selectedComment, API_BASE, selectedPostId, fetchComments]);
+
+  const handleAddComment = useCallback(async () => {
+    if (!newComment.trim()) return;
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/comment/${selectedPostId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: newComment.trim() }),
+      });
+
+      if (response.ok) {
+        setNewComment("");
+        fetchComments(selectedPostId);
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    }
+  }, [newComment, selectedPostId, API_BASE, fetchComments]);
+
   const toggleExpand = useCallback((postId) => {
     setExpandedPosts((prev) => ({
       ...prev,
@@ -462,36 +354,48 @@ const PostCard = ({ activeCategory }) => {
     }));
   }, []);
 
-  const handleReply = useCallback((commentId, commenterName) => {
-    setReplyingTo(commentId);
-    setReplyToUser(commenterName);
+  const toggleReplies = useCallback((commentId) => {
+    setVisibleReplies((prev) => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
   }, []);
 
-  const handleDeleteComment = useCallback((commentId) => {
-    Alert.alert(
-      "Delete Comment",
-      "Are you sure you want to delete this comment?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDeleteCommentOrReply(commentId),
-        },
-      ]
-    );
-  }, [handleDeleteCommentOrReply]);
+  const renderReplies = useCallback((replies) => {
+    return replies.map((reply, index) => (
+      <View key={reply.replyId || index} style={styles.replyItem}>
+        <Image
+          source={{ uri: "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150" }}
+          style={styles.replyAvatar}
+        />
+        <View style={styles.replyContent}>
+          <Text variant="caption" color="primary" style={styles.replyUser}>
+            {reply.replierName}
+          </Text>
+          <Text variant="body2" color="primary">
+            <Text variant="body2" color={COLORS.primary[600]}>
+              @{reply.repliedToName}
+            </Text>{" "}
+            {reply.text}
+          </Text>
+          <Text variant="caption" color="secondary">
+            {new Date(reply.repliedAt).toLocaleString()}
+          </Text>
+        </View>
+      </View>
+    ));
+  }, []);
 
   const renderItem = useCallback(({ item }) => {
     const isExpanded = expandedPosts[item.id];
 
     return (
-      <View style={styles.card}>
-        <PostHeader uploadedBy={item.uploadedBy} />
+      <Card style={styles.postCard} shadow="medium">
+        <PostHeader uploadedBy={item.uploadedBy} uploadedAt={item.uploadedAt} />
 
         <Image
           source={{ uri: item.imageUrl }}
-          style={styles.media}
+          style={styles.postImage}
           resizeMode="cover"
         />
 
@@ -508,24 +412,20 @@ const PostCard = ({ activeCategory }) => {
           isExpanded={isExpanded}
           onToggleExpand={() => toggleExpand(item.id)}
           tags={item.tags}
-          uploadedAt={item.uploadedAt}
         />
-      </View>
+      </Card>
     );
   }, [expandedPosts, handleLike, openCommentsModal, toggleExpand]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
-  const getItemLayout = useCallback((data, index) => ({
-    length: 400, // Approximate height of each post
-    offset: 400 * index,
-    index,
-  }), []);
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200ee" />
+        <ActivityIndicator size="large" color={COLORS.primary[600]} />
+        <Text variant="body2" color="secondary" style={styles.loadingText}>
+          Loading posts...
+        </Text>
       </View>
     );
   }
@@ -533,16 +433,22 @@ const PostCard = ({ activeCategory }) => {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={() => setError(null)}>
-          <Text style={styles.retryText}>Try Again</Text>
-        </TouchableOpacity>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error[500]} />
+        <Text variant="h6" color="primary" style={styles.errorTitle}>
+          Something went wrong
+        </Text>
+        <Text variant="body2" color="secondary" style={styles.errorMessage}>
+          {error}
+        </Text>
+        <Button onPress={() => setError(null)} style={styles.retryButton}>
+          Try Again
+        </Button>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <FlatList
         data={posts}
         renderItem={renderItem}
@@ -553,43 +459,51 @@ const PostCard = ({ activeCategory }) => {
         maxToRenderPerBatch={5}
         windowSize={10}
         initialNumToRender={3}
-        getItemLayout={getItemLayout}
       />
 
+      {/* Comments Modal */}
       <RNModal
         isVisible={commentModalVisible}
         onBackdropPress={() => setCommentModalVisible(false)}
         onSwipeComplete={() => setCommentModalVisible(false)}
         swipeDirection="down"
-        style={styles.modalContainerWrapper}
+        style={styles.modalWrapper}
         propagateSwipe
       >
         <View style={styles.modalContainer}>
-          <View style={styles.dragIndicator} />
-          <Text style={styles.modalTitle}>Comments</Text>
+          <View style={styles.modalHeader}>
+            <View style={styles.dragIndicator} />
+            <Text variant="h5" color="primary" style={styles.modalTitle}>
+              Comments
+            </Text>
+          </View>
 
           {loadingComments ? (
-            <ActivityIndicator size="large" color="#000" />
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color={COLORS.primary[600]} />
+            </View>
           ) : (
-            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+            <ScrollView style={styles.commentsScroll}>
               {comments.length > 0 ? (
                 comments.map((comment, index) => (
                   <CommentItem
                     key={index}
                     comment={comment}
                     currentUserId={currentUserId}
-                    isPostOwner={isPostOwner()}
-                    onReply={handleReply}
-                    onDelete={handleDeleteComment}
+                    isPostOwner={selectedPost?.uploaderId === currentUserId}
+                    onLongPress={handleCommentLongPress}
                     visibleReplies={visibleReplies}
                     onToggleReplies={toggleReplies}
                     renderReplies={renderReplies}
                   />
                 ))
               ) : (
-                <Text style={{ padding: 10, color: "#999" }}>
-                  No comments yet.
-                </Text>
+                <View style={styles.noComments}>
+                  <Ionicons name="chatbubble-outline" size={48} color={COLORS.neutral[300]} />
+                  <Text variant="body2" color="secondary">
+                    No comments yet. Be the first to comment!
+                  </Text>
+                </View>
               )}
             </ScrollView>
           )}
@@ -598,40 +512,60 @@ const PostCard = ({ activeCategory }) => {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             keyboardVerticalOffset={100}
           >
-            {replyingTo && (
-              <View style={styles.replyInfo}>
-                <Text style={styles.replyInfoText}>
-                  Replying to <Text style={{ fontWeight: "bold" }}>{replyToUser}</Text>
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setReplyingTo(null);
-                    setReplyToUser(null);
-                  }}
-                >
-                  <Text style={styles.cancelReplyText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <View style={styles.commentInputWrapper}>
+            <View style={styles.commentInputContainer}>
               <TextInput
-                placeholder={
-                  replyingTo ? "Write your reply..." : "Add a comment..."
-                }
-                placeholderTextColor="#777"
+                placeholder="Add a comment..."
+                placeholderTextColor={COLORS.neutral[400]}
                 value={newComment}
                 onChangeText={setNewComment}
                 style={styles.commentInput}
+                multiline
               />
               <TouchableOpacity
                 onPress={handleAddComment}
-                style={styles.postButton}
+                style={styles.sendButton}
+                disabled={!newComment.trim()}
               >
-                <Text style={styles.postButtonText}>Post</Text>
+                <Ionicons 
+                  name="send" 
+                  size={20} 
+                  color={newComment.trim() ? COLORS.primary[600] : COLORS.neutral[400]} 
+                />
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </RNModal>
+
+      {/* Comment Action Modal */}
+      <RNModal
+        isVisible={commentActionModal}
+        onBackdropPress={() => setCommentActionModal(false)}
+        style={styles.actionModalWrapper}
+      >
+        <View style={styles.actionModalContainer}>
+          <Text variant="h6" color="primary" style={styles.actionModalTitle}>
+            Comment Options
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.actionModalButton}
+            onPress={handleDeleteComment}
+          >
+            <Ionicons name="trash-outline" size={20} color={COLORS.error[600]} />
+            <Text variant="body1" color={COLORS.error[600]} style={styles.actionModalText}>
+              Delete Comment
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionModalButton, styles.cancelButton]}
+            onPress={() => setCommentActionModal(false)}
+          >
+            <Text variant="body1" color="secondary">
+              Cancel
+            </Text>
+          </TouchableOpacity>
         </View>
       </RNModal>
     </View>
@@ -639,220 +573,249 @@ const PostCard = ({ activeCategory }) => {
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 12,
-    marginBottom: 20,
-    borderRadius: 15,
-    overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.neutral[50],
+  },
+  postCard: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.lg,
+    padding: 0,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fafafa",
+    padding: SPACING.md,
+    backgroundColor: COLORS.white,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: SPACING.sm,
   },
-  username: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
+  headerText: {
+    flex: 1,
   },
-  media: {
+  postImage: {
     width: "100%",
     height: screenWidth * 0.75,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: COLORS.neutral[100],
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.white,
   },
-  icon: {
-    marginRight: 8,
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: SPACING.lg,
   },
-  commentButton: {
-    marginLeft: 15,
-    marginRight: 5,
+  actionText: {
+    marginLeft: SPACING.xs,
   },
-  countText: {
-    fontSize: 14,
-    color: "#333",
-    marginRight: 8,
+  contentContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.white,
   },
-  captionContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 6,
-  },
-  caption: {
-    fontSize: 14,
-    color: "#444",
+  content: {
+    marginBottom: SPACING.xs,
   },
   viewMoreText: {
-    color: "#6200ee",
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: SPACING.xs,
   },
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 12,
-    paddingBottom: 8,
+    marginTop: SPACING.sm,
   },
   tag: {
-    color: "#6200ee",
-    marginRight: 8,
-    fontSize: 13,
-  },
-  timestamp: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    fontSize: 12,
-    color: "#888",
+    backgroundColor: COLORS.primary[50],
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: 12,
+    marginRight: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: COLORS.white,
+  },
+  loadingText: {
+    marginTop: SPACING.sm,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: SPACING.xl,
+    backgroundColor: COLORS.white,
   },
-  errorText: {
-    color: "red",
-    marginBottom: 10,
+  errorTitle: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  errorMessage: {
     textAlign: "center",
+    marginBottom: SPACING.lg,
   },
-  retryText: {
-    color: "blue",
+  retryButton: {
+    marginTop: SPACING.md,
   },
   listContainer: {
-    paddingVertical: 10,
-    paddingBottom: 30,
+    paddingVertical: SPACING.md,
+    paddingBottom: 100,
   },
-  modalContainerWrapper: {
+
+  // Modal Styles
+  modalWrapper: {
     justifyContent: "flex-end",
     margin: 0,
   },
   modalContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-    maxHeight: Dimensions.get("window").height * 0.93,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xl,
+    maxHeight: Dimensions.get("window").height * 0.9,
+    ...SHADOWS.xl,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: SPACING.md,
   },
   dragIndicator: {
     width: 40,
-    height: 5,
-    backgroundColor: "#ccc",
-    borderRadius: 10,
-    alignSelf: "center",
-    marginBottom: 12,
+    height: 4,
+    backgroundColor: COLORS.neutral[300],
+    borderRadius: 2,
+    marginBottom: SPACING.sm,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 16,
-    color: "#111",
     textAlign: "center",
   },
-  commentBlock: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#efefef",
+  modalLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: SPACING.xl,
   },
-  commentHeader: {
+  commentsScroll: {
+    flex: 1,
+    marginBottom: SPACING.md,
+  },
+  commentItem: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: 12,
   },
-  commentUserImage: {
+  commentAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#ddd",
+    marginRight: SPACING.sm,
   },
-  commentUser: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111",
+  commentContent: {
+    flex: 1,
   },
   commentText: {
-    fontSize: 14,
-    color: "#222",
-    marginTop: 2,
-    lineHeight: 20,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   commentTime: {
-    fontSize: 11,
-    color: "#999",
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
-  replyBtn: {
-    fontSize: 13,
-    color: "#000",
-    fontWeight: "500",
-    marginTop: 6,
-  },
-  commentInputWrapper: {
+  replyItem: {
     flexDirection: "row",
+    marginTop: SPACING.sm,
+    marginLeft: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: SPACING.sm,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyUser: {
+    marginBottom: SPACING.xs,
+  },
+  viewRepliesButton: {
+    marginTop: SPACING.sm,
+    marginLeft: SPACING.lg,
+  },
+  noComments: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 5,
+    paddingVertical: SPACING['3xl'],
+  },
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.neutral[200],
+    backgroundColor: COLORS.white,
   },
   commentInput: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: COLORS.neutral[50],
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: "#111",
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginRight: SPACING.sm,
+    maxHeight: 100,
+    fontSize: 16,
+    color: COLORS.text.primary,
   },
-  postButton: {
-    marginLeft: 10,
+  sendButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
   },
-  postButtonText: {
-    color: "#000",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  replyInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+
+  // Action Modal Styles
+  actionModalWrapper: {
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f1f1f1",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 8,
   },
-  replyInfoText: {
-    fontSize: 13,
-    color: "#333",
+  actionModalContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: SPACING.lg,
+    width: "80%",
+    ...SHADOWS.lg,
   },
-  cancelReplyText: {
-    color: "#000",
-    fontSize: 13,
+  actionModalTitle: {
+    textAlign: "center",
+    marginBottom: SPACING.lg,
+  },
+  actionModalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 12,
+    marginBottom: SPACING.sm,
+  },
+  actionModalText: {
+    marginLeft: SPACING.sm,
+  },
+  cancelButton: {
+    backgroundColor: COLORS.neutral[50],
   },
 });
 
