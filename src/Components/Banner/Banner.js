@@ -31,12 +31,12 @@ const BannerItem = React.memo(({ item, index, totalItems, onPress }) => (
       style={styles.gradient}
     >
       <View style={styles.textOverlay}>
-        <Text variant="h6" color="inverse" style={styles.headline}>
+        <Text variant="h6" style={[styles.headline, { color: COLORS.white }]}>
           {item.headline}
         </Text>
       </View>
       <View style={styles.carouselCounter}>
-        <Text variant="caption" color="inverse" style={styles.counterText}>
+        <Text variant="caption" style={[styles.counterText, { color: COLORS.white }]}>
           {index + 1} / {totalItems}
         </Text>
       </View>

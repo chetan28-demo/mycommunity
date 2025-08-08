@@ -32,10 +32,10 @@ const TopBar = ({ profileImage, onMessagePress, activeCategory, setActiveCategor
         </TouchableOpacity>
 
         <View style={styles.centerContent}>
-          <Text variant="h5" color="inverse" style={styles.appTitle}>
+          <Text variant="h5" style={[styles.appTitle, { color: COLORS.white }]}>
             Community
           </Text>
-          <Text variant="caption" color="inverse" style={styles.subtitle}>
+          <Text variant="caption" style={[styles.subtitle, { color: COLORS.white, opacity: 0.8 }]}>
             Stay connected
           </Text>
         </View>
@@ -44,7 +44,7 @@ const TopBar = ({ profileImage, onMessagePress, activeCategory, setActiveCategor
           <TouchableOpacity style={styles.iconButton}>
             <Ionicons name="notifications-outline" size={24} color={COLORS.white} />
             <View style={styles.notificationBadge}>
-              <Text variant="caption" color="inverse" style={styles.badgeText}>
+              <Text variant="caption" style={[styles.badgeText, { color: COLORS.white }]}>
                 3
               </Text>
             </View>
@@ -110,7 +110,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    opacity: 0.8,
   },
   iconGroup: {
     flexDirection: 'row',

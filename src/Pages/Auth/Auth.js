@@ -138,8 +138,10 @@ const Auth = () => {
           >
             <Text 
               variant="label" 
-              color={isLogin ? "inverse" : "secondary"}
-              style={styles.toggleText}
+              style={[
+                styles.toggleText,
+                { color: isLogin ? COLORS.white : COLORS.neutral[600] }
+              ]}
             >
               {t('Login')}
             </Text>
@@ -150,8 +152,10 @@ const Auth = () => {
           >
             <Text 
               variant="label" 
-              color={!isLogin ? "inverse" : "secondary"}
-              style={styles.toggleText}
+              style={[
+                styles.toggleText,
+                { color: !isLogin ? COLORS.white : COLORS.neutral[600] }
+              ]}
             >
               {t('Register')}
             </Text>
@@ -211,11 +215,11 @@ const Auth = () => {
               </View>
               <Text variant="caption" color="secondary" style={styles.termsText}>
                 I agree to the{' '}
-                <Text variant="caption" color={COLORS.primary[600]}>
+                <Text variant="caption" style={[styles.termsLink, { color: COLORS.primary[600] }]}>
                   Terms of Service
                 </Text>
                 {' '}and{' '}
-                <Text variant="caption" color={COLORS.primary[600]}>
+                <Text variant="caption" style={[styles.termsLink, { color: COLORS.primary[600] }]}>
                   Privacy Policy
                 </Text>
               </Text>
@@ -234,7 +238,7 @@ const Auth = () => {
 
           {isLogin && (
             <TouchableOpacity style={styles.forgotPassword}>
-              <Text variant="body2" color={COLORS.primary[600]}>
+              <Text variant="body2" style={[styles.forgotPasswordText, { color: COLORS.primary[600] }]}>
                 Forgot Password?
               </Text>
             </TouchableOpacity>
@@ -247,7 +251,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}
           </Text>
           <TouchableOpacity onPress={toggleMode}>
-            <Text variant="body2" color={COLORS.primary[600]} style={styles.switchModeText}>
+            <Text variant="body2" style={[styles.switchModeText, { color: COLORS.primary[600] }]}>
               {isLogin ? 'Sign Up' : 'Sign In'}
             </Text>
           </TouchableOpacity>
@@ -337,12 +341,18 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  termsLink: {
+    // Color handled inline
+  },
   submitButton: {
     marginTop: SPACING.lg,
   },
   forgotPassword: {
     alignItems: 'center',
     marginTop: SPACING.md,
+  },
+  forgotPasswordText: {
+    // Color handled inline
   },
   switchModeContainer: {
     flexDirection: 'row',

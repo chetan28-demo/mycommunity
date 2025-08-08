@@ -52,7 +52,7 @@ const CommentActionModal = ({ visible, onClose, onDelete, comment }) => (
           onPress={onDelete}
         >
           <MaterialIcons name="delete-outline" size={20} color={COLORS.error[600]} />
-          <Text variant="body1" color={COLORS.error[600]} style={styles.deleteButtonText}>
+          <Text variant="body1" style={[styles.deleteButtonText, { color: COLORS.error[600] }]}>
             Delete Comment
           </Text>
         </TouchableOpacity>
@@ -124,7 +124,7 @@ const CommentItem = React.memo(({
           </TouchableOpacity>
           
           <TouchableOpacity>
-            <Text variant="caption" color={COLORS.primary[600]}>
+            <Text variant="caption" style={[styles.replyText, { color: COLORS.primary[600] }]}>
               Reply
             </Text>
           </TouchableOpacity>
@@ -365,6 +365,9 @@ const styles = StyleSheet.create({
   },
   likeCount: {
     marginLeft: SPACING.xs,
+  },
+  replyText: {
+    // Color handled inline
   },
   inputContainer: {
     backgroundColor: COLORS.white,

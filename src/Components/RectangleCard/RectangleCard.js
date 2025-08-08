@@ -24,8 +24,10 @@ const CategoryItem = React.memo(({ item, isActive, onPress }) => {
     >
       <Text 
         variant="label" 
-        color={isActive ? "inverse" : "primary"} 
-        style={styles.categoryText}
+        style={[
+          styles.categoryText,
+          { color: isActive ? COLORS.white : COLORS.white }
+        ]}
       >
         {t(`categories.${item}`, item)}
       </Text>

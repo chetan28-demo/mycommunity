@@ -30,8 +30,10 @@ const GenderOption = React.memo(({ option, selected, onPress }) => (
     />
     <Text
       variant="label"
-      color={selected ? "inverse" : "primary"}
-      style={styles.genderText}
+      style={[
+        styles.genderText,
+        { color: selected ? COLORS.white : COLORS.primary[600] }
+      ]}
     >
       {option.charAt(0).toUpperCase() + option.slice(1)}
     </Text>

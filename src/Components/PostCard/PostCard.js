@@ -12,7 +12,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  BackHandler,
   Pressable,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -88,9 +87,9 @@ const PostContent = React.memo(({
       {content}
     </Text>
     
-    {content.length > 150 && (
+    {content && content.length > 150 && (
       <TouchableOpacity onPress={onToggleExpand}>
-        <Text variant="caption" color={COLORS.primary[600]} style={styles.viewMoreText}>
+        <Text variant="caption" style={[styles.viewMoreText, { color: COLORS.primary[600] }]}>
           {isExpanded ? "Show less" : "Show more"}
         </Text>
       </TouchableOpacity>
@@ -100,7 +99,7 @@ const PostContent = React.memo(({
       <View style={styles.tagsContainer}>
         {tags.map((tag, index) => (
           <View key={index} style={styles.tag}>
-            <Text variant="caption" color={COLORS.primary[600]}>
+            <Text variant="caption" style={[styles.tagText, { color: COLORS.primary[600] }]}>
               #{tag}
             </Text>
           </View>
@@ -148,7 +147,7 @@ const CommentItem = React.memo(({
               onPress={() => onToggleReplies(comment.commentId)}
               style={styles.viewRepliesButton}
             >
-              <Text variant="caption" color={COLORS.primary[600]}>
+              <Text variant="caption" style={[styles.viewRepliesText, { color: COLORS.primary[600] }]}>
                 {visibleReplies[comment.commentId]
                   ? "Hide replies"
                   : `View ${comment.replies.length - 1} more repl${
@@ -373,7 +372,7 @@ const PostCard = ({ activeCategory }) => {
             {reply.replierName}
           </Text>
           <Text variant="body2" color="primary">
-            <Text variant="body2" color={COLORS.primary[600]}>
+            <Text variant="body2" style={[styles.replyMention, { color: COLORS.primary[600] }]}>
               @{reply.repliedToName}
             </Text>{" "}
             {reply.text}
@@ -553,7 +552,7 @@ const PostCard = ({ activeCategory }) => {
             onPress={handleDeleteComment}
           >
             <Ionicons name="trash-outline" size={20} color={COLORS.error[600]} />
-            <Text variant="body1" color={COLORS.error[600]} style={styles.actionModalText}>
+            <Text variant="body1" style={[styles.actionModalText, { color: COLORS.error[600] }]}>
               Delete Comment
             </Text>
           </TouchableOpacity>
@@ -641,6 +640,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: SPACING.xs,
     marginBottom: SPACING.xs,
+  },
+  tagText: {
+    // Color handled inline
   },
   loadingContainer: {
     flex: 1,
@@ -753,9 +755,15 @@ const styles = StyleSheet.create({
   replyUser: {
     marginBottom: SPACING.xs,
   },
+  replyMention: {
+    // Color handled inline
+  },
   viewRepliesButton: {
     marginTop: SPACING.sm,
     marginLeft: SPACING.lg,
+  },
+  viewRepliesText: {
+    // Color handled inline
   },
   noComments: {
     flex: 1,

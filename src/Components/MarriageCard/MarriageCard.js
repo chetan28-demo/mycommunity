@@ -91,7 +91,7 @@ const MarriageCard = ({ match }) => {
                 onIndexChange={handleIndexChange}
               />
               <View style={styles.imageCounter}>
-                <Text variant="caption" color="inverse" style={styles.imageCounterText}>
+                <Text variant="caption" style={[styles.imageCounterText, { color: COLORS.white }]}>
                   {currentIndex + 1} / {totalImages}
                 </Text>
               </View>

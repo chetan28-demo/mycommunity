@@ -1,8 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -13,8 +11,8 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-
-
+import { Text, Card, Button } from '../../Components/UI';
+import { COLORS, SPACING, SHADOWS, SAFE_AREA } from '../../theme';
 
 const calculateAge = (dobString) => {
   const dob = new Date(dobString);
@@ -27,16 +25,43 @@ const calculateAge = (dobString) => {
   return age;
 };
 
+const DetailItem = React.memo(({ icon, label, value, color = COLORS.primary[600] }) => {
+  if (!value) return null;
+  
+  return (
+    <View style={styles.detailRow}>
+      <View style={styles.detailIcon}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <View style={styles.detailContent}>
+        <Text variant="caption" color="secondary" style={styles.detailLabel}>
+          {label}
+        </Text>
+        <Text variant="body1" color="primary" style={styles.detailValue}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+});
+
+const TreeBox = ({ label }) => (
+  <View style={styles.treeBox}>
+    <Ionicons name="person" size={20} color={COLORS.primary[600]} />
+    <Text variant="caption" color="primary" style={styles.treeBoxLabel}>
+      {label}
+    </Text>
+  </View>
+);
+
 const UserProfile = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { userId } = route.params;
-    console.log("Received userId:", userId); // ✅ Debug
-
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showTree, setShowTree] = useState(false); // Popup toggle
+  const [showTree, setShowTree] = useState(false);
 
   const fetchUserDetails = async () => {
     try {
@@ -46,7 +71,6 @@ const UserProfile = () => {
         console.error("No token found in storage");
         return;
       }
-      
 
       const res = await fetch(`http://192.168.1.116:8080/api/users/${userId}`, {
         headers: {
@@ -77,16 +101,25 @@ const UserProfile = () => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#212529" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary[600]} />
+        <Text variant="body2" color="secondary" style={styles.loadingText}>
+          Loading profile...
+        </Text>
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.loaderContainer}>
-        <Text style={{ color: "#333" }}>User data not found.</Text>
+      <View style={styles.loadingContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error[500]} />
+        <Text variant="h6" color="primary" style={styles.errorTitle}>
+          User data not found
+        </Text>
+        <Button onPress={fetchUserDetails} style={styles.retryButton}>
+          Try Again
+        </Button>
       </View>
     );
   }
@@ -111,94 +144,157 @@ const UserProfile = () => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text variant="h5" style={[styles.headerTitle, { color: COLORS.white }]}>
+          Profile
+        </Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: 60 }}>
-        {/* Profile Avatar + Name */}
-        <View style={styles.profileTop}>
-          <Image
-            source={{ uri: "https://randomuser.me/api/portraits/men/1.jpg" }}
-            style={styles.avatar}
+      <ScrollView 
+        style={styles.scrollContainer} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Header */}
+        <Card style={styles.profileCard}>
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{ uri: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300" }}
+              style={styles.avatar}
+            />
+            <View style={styles.onlineIndicator} />
+          </View>
+          
+          <Text variant="h3" color="primary" style={styles.name}>
+            {firstName} {lastName}
+          </Text>
+          
+          <View style={styles.basicInfo}>
+            <View style={styles.infoItem}>
+              <Ionicons name="calendar-outline" size={16} color={COLORS.primary[600]} />
+              <Text variant="body2" color="secondary" style={styles.infoText}>
+                {age} years old
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="location-outline" size={16} color={COLORS.primary[600]} />
+              <Text variant="body2" color="secondary" style={styles.infoText}>
+                {address || 'Location not specified'}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Personal Details */}
+        <Card style={styles.detailsCard}>
+          <Text variant="h5" color="primary" style={styles.sectionTitle}>
+            Personal Information
+          </Text>
+          
+          <DetailItem icon="person-outline" label="Gender" value={gender} />
+          <DetailItem icon="heart-outline" label="Marital Status" value={maritalStatus} />
+          <DetailItem icon="calendar-outline" label="Date of Birth" value={dob} />
+        </Card>
+
+        {/* Physical Information */}
+        <Card style={styles.detailsCard}>
+          <Text variant="h5" color="primary" style={styles.sectionTitle}>
+            Physical Information
+          </Text>
+          
+          <DetailItem 
+            icon="resize-outline" 
+            label="Height" 
+            value={height ? `${height} ft` : null}
+            color={COLORS.secondary[600]}
           />
-          <Text style={styles.name}>{firstName}</Text>
-          <Text style={styles.name}>{lastName}</Text>
-        </View>
+          <DetailItem 
+            icon="barbell-outline" 
+            label="Weight" 
+            value={weight ? `${weight} kg` : null}
+            color={COLORS.secondary[600]}
+          />
+          <DetailItem 
+            icon="water-outline" 
+            label="Blood Group" 
+            value={bloodGroup}
+            color={COLORS.error[500]}
+          />
+        </Card>
 
-        {/* Profile Detail Card */}
-        <View style={styles.card}>
-          {renderDetail("Age", age)}
-          {renderDetail("Gender", gender)}
-          {renderDetail("Marital Status", maritalStatus)}
-          {renderDetail("Height", height ? `${height} ft` : null)}
-          {renderDetail("Weight", weight ? `${weight} kg` : null)}
-          {renderDetail("Blood Group", bloodGroup)}
-          {renderDetail("Address", address)}
-          {renderDetail("Emergency Contact", emergencyContact)}
-        </View>
+        {/* Family Information */}
+        <Card style={styles.detailsCard}>
+          <Text variant="h5" color="primary" style={styles.sectionTitle}>
+            Family Details
+          </Text>
+          
+          <DetailItem 
+            icon="man-outline" 
+            label="Father" 
+            value={fatherName}
+            color={COLORS.accent[600]}
+          />
+          <DetailItem 
+            icon="woman-outline" 
+            label="Mother" 
+            value={motherName}
+            color={COLORS.accent[600]}
+          />
+          <DetailItem 
+            icon="call-outline" 
+            label="Emergency Contact" 
+            value={emergencyContact}
+            color={COLORS.warning[600]}
+          />
+        </Card>
 
-        {/* Family Info Section */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Family Details</Text>
-          {renderDetail("Father", fatherName)}
-          {renderDetail("Mother", motherName)}
-        </View>
-
-        {/* Button to open family tree popup */}
-        <TouchableOpacity
-          style={styles.primaryButton}
+        {/* Family Tree Button */}
+        <Button
+          variant="outline"
           onPress={() => setShowTree(true)}
+          style={styles.familyTreeButton}
         >
-          <MaterialIcons name="account-tree" size={20} color="#fff" />
-          <Text style={styles.primaryButtonText}>View Family Tree</Text>
-        </TouchableOpacity>
+          <MaterialIcons name="account-tree" size={20} color={COLORS.primary[600]} />
+          View Family Tree
+        </Button>
       </ScrollView>
 
-      {/* Popup Family Tree */}
+      {/* Family Tree Modal */}
       <Modal transparent visible={showTree} animationType="fade">
-        <View style={popupStyles.overlay}>
-          <View style={popupStyles.popup}>
-            <TouchableOpacity style={popupStyles.closeButton} onPress={() => setShowTree(false)}>
-              <Ionicons name="close" size={22} color="#000" />
-            </TouchableOpacity>
-            <Text style={popupStyles.title}>Family Tree</Text>
+        <View style={styles.modalOverlay}>
+          <Card style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text variant="h5" color="primary" style={styles.modalTitle}>
+                Family Tree
+              </Text>
+              <TouchableOpacity 
+                style={styles.closeButton} 
+                onPress={() => setShowTree(false)}
+              >
+                <Ionicons name="close" size={24} color={COLORS.neutral[600]} />
+              </TouchableOpacity>
+            </View>
 
-            <View style={popupStyles.treeContainer}>
-              <View style={popupStyles.row}>
+            <View style={styles.treeContainer}>
+              <View style={styles.treeRow}>
                 <TreeBox label="Grandfather" />
                 <TreeBox label="Grandmother" />
               </View>
-              <View style={popupStyles.row}>
+              <View style={styles.treeRow}>
                 <TreeBox label="Father" />
                 <TreeBox label="Mother" />
               </View>
-              <View style={popupStyles.row}>
+              <View style={styles.treeRow}>
                 <TreeBox label="You" />
               </View>
             </View>
-          </View>
+          </Card>
         </View>
       </Modal>
-    </View>
-  );
-};
-
-const TreeBox = ({ label }) => (
-  <View style={popupStyles.box}>
-    <Text style={popupStyles.boxLabel}>{label}</Text>
-  </View>
-);
-
-const renderDetail = (label, value) => {
-  if (!value) return null;
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 };
@@ -206,148 +302,186 @@ const renderDetail = (label, value) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.neutral[50],
   },
-  headerContainer: {
-    backgroundColor: "#212529",
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: SAFE_AREA.top,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.primary[600],
+    ...SHADOWS.md,
   },
-  backButton: {
-    marginRight: 15,
+  headerButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollContainer: {
-    paddingHorizontal: 20,
+    flex: 1,
   },
-  profileTop: {
-    alignItems: "center",
-    marginTop: 30,
-    marginBottom: 30,
+  scrollContent: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  loadingText: {
+    marginTop: SPACING.sm,
+  },
+  errorTitle: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: SPACING.md,
+  },
+  profileCard: {
+    alignItems: 'center',
+    padding: SPACING.xl,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: SPACING.md,
   },
   avatar: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    marginBottom: 12,
+    borderWidth: 4,
+    borderColor: COLORS.white,
+    ...SHADOWS.md,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.success[500],
+    borderWidth: 3,
+    borderColor: COLORS.white,
   },
   name: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#212529",
+    textAlign: 'center',
+    marginBottom: SPACING.md,
   },
-  card: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+  basicInfo: {
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoText: {
+    marginLeft: SPACING.xs,
+  },
+  detailsCard: {
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#212529",
-    marginBottom: 10,
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neutral[200],
   },
   detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
+    borderBottomColor: COLORS.neutral[100],
+  },
+  detailIcon: {
+    width: 32,
+    alignItems: 'center',
+  },
+  detailContent: {
+    flex: 1,
+    marginLeft: SPACING.md,
   },
   detailLabel: {
-    fontWeight: "500",
-    color: "#495057",
+    marginBottom: SPACING.xs,
   },
   detailValue: {
-    color: "#343a40",
+    fontWeight: '600',
   },
-  primaryButton: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#212529",
-    paddingVertical: 14,
-    marginTop: 10,
-    borderRadius: 8,
+  familyTreeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
   },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
 
-// Popup styles
-const popupStyles = StyleSheet.create({
-  overlay: {
+  // Modal Styles
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
   },
-  popup: {
-    backgroundColor: "#fff",
-    padding: 20,
-    width: "85%",
-    borderRadius: 12,
-    position: "relative",
-    alignItems: "center",
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    padding: SPACING.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
   },
   closeButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    padding: 5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#212529",
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: COLORS.neutral[50],
   },
   treeContainer: {
-    alignItems: "center",
-    width: "100%",
+    alignItems: 'center',
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 12,
+  treeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+    gap: SPACING.lg,
   },
-  box: {
-    width: 70,
-    height: 70,
-    borderWidth: 1.5,
-    borderColor: "#212529",
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 10,
-    backgroundColor: "#f1f3f5",
+  treeBox: {
+    width: 80,
+    height: 80,
+    borderWidth: 2,
+    borderColor: COLORS.primary[600],
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary[50],
   },
-  boxLabel: {
-    fontSize: 12,
-    color: "#343a40",
-    textAlign: "center",
+  treeBoxLabel: {
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });
 

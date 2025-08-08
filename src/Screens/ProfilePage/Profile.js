@@ -200,7 +200,7 @@ const ProfilePage = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        <Text variant="h5" color="inverse" style={styles.headerTitle}>
+        <Text variant="h5" style={[styles.headerTitle, { color: COLORS.white }]}>
           Profile
         </Text>
         <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
