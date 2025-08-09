@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COMMON_COLORS } from '../../utils/constants';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, Button } from '../UI';
+import { COLORS, SPACING } from '../../theme';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -24,17 +26,16 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>
+          <Ionicons name="alert-circle-outline" size={64} color={COLORS.error[500]} />
+          <Text variant="h4" color="primary" style={styles.title}>
+            Something went wrong
+          </Text>
+          <Text variant="body2" color="secondary" style={styles.message}>
             {this.state.error?.message || 'An unexpected error occurred'}
           </Text>
-          <TouchableOpacity 
-            style={styles.retryButton} 
-            onPress={this.handleRetry}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          <Button onPress={this.handleRetry} style={styles.retryButton}>
+            Try Again
+          </Button>
         </View>
       );
     }
@@ -48,33 +49,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: COMMON_COLORS.LIGHT,
+    padding: SPACING.xl,
+    backgroundColor: COLORS.white,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COMMON_COLORS.DANGER,
-    marginBottom: 10,
     textAlign: 'center',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   message: {
-    fontSize: 16,
-    color: COMMON_COLORS.SECONDARY,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
     lineHeight: 24,
   },
   retryButton: {
-    backgroundColor: COMMON_COLORS.PRIMARY,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: COMMON_COLORS.WHITE,
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: SPACING.md,
   },
 });
 

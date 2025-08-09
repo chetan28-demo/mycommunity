@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Text } from '../UI';
+import { COLORS } from '../../theme';
 import styles from './CircleCardStyles';
 
 const CircleCard = ({ activeCategory, setActiveCategory }) => {
@@ -47,6 +48,7 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
       activeOpacity={0.8}
     >
       <Text
+        variant="label"
         style={[
           styles.cardText,
           activeCategory === item ? styles.activeText : styles.inactiveText,
@@ -67,7 +69,7 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+        <ActivityIndicator size="large" color={COLORS.primary[600]} />
       </View>
     );
   }
@@ -91,7 +93,7 @@ const CircleCard = ({ activeCategory, setActiveCategory }) => {
         onPress={changeLanguage}
         activeOpacity={0.8}
       >
-        <Text style={styles.languageText}>
+        <Text variant="body2" style={styles.languageText}>
           {i18n.language === 'en' ? 'Gujarati' : 'English'}
         </Text>
       </TouchableOpacity>

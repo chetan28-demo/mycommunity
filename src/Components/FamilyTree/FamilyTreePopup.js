@@ -1,15 +1,25 @@
 import React from 'react';
 import {
   View,
-  Text,
   Modal,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Text, Card } from '../UI';
+import { COLORS, SPACING, SHADOWS } from '../../theme';
 
 const { width } = Dimensions.get('window');
+
+const TreeBox = ({ label }) => (
+  <View style={styles.treeBox}>
+    <Ionicons name="person" size={20} color={COLORS.primary[600]} />
+    <Text variant="caption" color="primary" style={styles.treeBoxLabel}>
+      {label}
+    </Text>
+  </View>
+);
 
 const FamilyTreePopup = ({ visible, onClose }) => {
   return (
@@ -17,99 +27,98 @@ const FamilyTreePopup = ({ visible, onClose }) => {
       transparent
       visible={visible}
       animationType="fade"
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.popup}>
-          {/* Close Button */}
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color="#000" />
-          </TouchableOpacity>
+        <Card style={styles.popup}>
+          <View style={styles.header}>
+            <Text variant="h5" color="primary" style={styles.title}>
+              Family Tree
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={onClose}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={24} color={COLORS.neutral[600]} />
+            </TouchableOpacity>
+          </View>
 
-          <Text style={styles.title}>Family Tree</Text>
-
-          {/* Tree Structure */}
           <View style={styles.treeContainer}>
             {/* Grand Parents Row */}
-            <View style={styles.row}>
-              <SquareBox label="Grandfather" />
-              <SquareBox label="Grandmother" />
+            <View style={styles.treeRow}>
+              <TreeBox label="Grandfather" />
+              <TreeBox label="Grandmother" />
             </View>
 
             {/* Parents Row */}
-            <View style={styles.row}>
-              <SquareBox label="Father" />
-              <SquareBox label="Mother" />
+            <View style={styles.treeRow}>
+              <TreeBox label="Father" />
+              <TreeBox label="Mother" />
             </View>
 
             {/* User Row */}
-            <View style={styles.row}>
-              <SquareBox label="You" />
+            <View style={styles.treeRow}>
+              <TreeBox label="You" />
             </View>
           </View>
-        </View>
+        </Card>
       </View>
     </Modal>
   );
 };
 
-const SquareBox = ({ label }) => (
-  <View style={styles.box}>
-    {/* Placeholder for future image */}
-    <Text style={styles.boxLabel}>{label}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: SPACING.md,
   },
   popup: {
-    backgroundColor: '#fff',
-    width: width * 0.85,
-    padding: 20,
-    borderRadius: 14,
-    alignItems: 'center',
-    position: 'relative',
+    width: '100%',
+    maxWidth: 400,
+    padding: SPACING.xl,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 10,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212529',
-    marginBottom: 20,
+    flex: 1,
+    textAlign: 'center',
+  },
+  closeButton: {
+    padding: SPACING.sm,
+    borderRadius: 20,
+    backgroundColor: COLORS.neutral[50],
   },
   treeContainer: {
-    width: '100%',
     alignItems: 'center',
   },
-  row: {
+  treeRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
+    gap: SPACING.lg,
   },
-  box: {
-    width: 70,
-    height: 70,
-    borderWidth: 1.5,
-    borderColor: '#212529',
-    borderRadius: 10,
+  treeBox: {
+    width: 80,
+    height: 80,
+    borderWidth: 2,
+    borderColor: COLORS.primary[600],
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 10,
-    backgroundColor: '#f1f3f5',
+    backgroundColor: COLORS.primary[50],
   },
-  boxLabel: {
-    fontSize: 12,
-    color: '#343a40',
+  treeBoxLabel: {
+    marginTop: SPACING.xs,
     textAlign: 'center',
+    fontWeight: '600',
   },
 });
 

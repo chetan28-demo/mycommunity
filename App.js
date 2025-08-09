@@ -1,17 +1,12 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import StackNavigator from './src/Components/StackNavigator';
 import { MemberStatusProvider } from './src/context/MemberStatusContext';
 import { AuthProvider } from './src/context/AuthContext';
 import ErrorBoundary from './src/Components/ErrorBoundary/ErrorBoundary';
 
-const Stack = createStackNavigator();
-
-function App() {
+export default function App() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -25,5 +20,3 @@ function App() {
     </ErrorBoundary>
   );
 }
-
-export default App;

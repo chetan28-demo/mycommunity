@@ -1,18 +1,22 @@
 import React from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { COMMON_COLORS } from '../../utils/constants';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text } from '../UI';
+import { COLORS, SPACING } from '../../theme';
 
 const LoadingSpinner = ({ 
   size = 'large', 
-  color = COMMON_COLORS.PRIMARY, 
+  color = COLORS.primary[600], 
   text = 'Loading...',
   style = {} 
 }) => {
   return (
     <View style={[styles.container, style]}>
       <ActivityIndicator size={size} color={color} />
-      {text && <Text style={styles.text}>{text}</Text>}
-      }
+      {text && (
+        <Text variant="body2" color="secondary" style={styles.text}>
+          {text}
+        </Text>
+      )}
     </View>
   );
 };
@@ -22,12 +26,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.lg,
   },
   text: {
-    marginTop: 10,
-    fontSize: 16,
-    color: COMMON_COLORS.SECONDARY,
+    marginTop: SPACING.sm,
     textAlign: 'center',
   },
 });

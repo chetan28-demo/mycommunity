@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Image, View, ActivityIndicator, StyleSheet } from 'react-native';
-import { COMMON_COLORS } from '../../utils/constants';
+import { Ionicons } from '@expo/vector-icons';
+import { Text } from '../UI';
+import { COLORS, SPACING } from '../../theme';
 import imageCache from '../../utils/imageCache';
 
 const OptimizedImage = ({ 
@@ -8,6 +10,7 @@ const OptimizedImage = ({
   style, 
   resizeMode = 'cover',
   placeholder = true,
+  fallbackText = 'Image not available',
   ...props 
 }) => {
   const [loading, setLoading] = useState(true);
@@ -30,10 +33,21 @@ const OptimizedImage = ({
     setError(true);
   }, []);
 
+  if (error) {
+    return (
+      <View style={[styles.container, styles.errorContainer, style]}>
+        <Ionicons name="image-outline" size={32} color={COLORS.neutral[400]} />
+        <Text variant="caption" color="secondary" style={styles.errorText}>
+          {fallbackText}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, style]}>
       <Image
-        source={error ? { uri: 'https://via.placeholder.com/300x200/cccccc/666666?text=Image+Not+Found' } : source}
+        source={source}
         style={[styles.image, style]}
         resizeMode={resizeMode}
         onLoadStart={handleLoadStart}
@@ -44,7 +58,7 @@ const OptimizedImage = ({
       
       {loading && placeholder && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color={COMMON_COLORS.PRIMARY} />
+          <ActivityIndicator size="small" color={COLORS.primary[600]} />
         </View>
       )}
     </View>
@@ -67,7 +81,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COMMON_COLORS.LIGHT,
+    backgroundColor: COLORS.neutral[50],
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.neutral[50],
+  },
+  errorText: {
+    marginTop: SPACING.xs,
+    textAlign: 'center',
   },
 });
 

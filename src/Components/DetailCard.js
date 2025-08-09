@@ -1,20 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Image, StyleSheet, ActivityIndicator, FlatList } from 'react-native';
+import { Text, Card } from './UI';
+import { COLORS, SPACING } from '../theme';
+
+const CategoryItem = React.memo(({ category }) => (
+  <Card style={styles.card}>
+    {category.img && (
+      <Image source={{ uri: category.img }} style={styles.cardImage} />
+    )}
+    <View style={styles.cardDetails}>
+      <Text variant="h6" color="primary" style={styles.cardTitle}>
+        {category.name}
+      </Text>
+      {category.email && (
+        <Text variant="body2" color="secondary" style={styles.cardEmail}>
+          {category.email}
+        </Text>
+      )}
+    </View>
+  </Card>
+));
 
 const DetailCard = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch categories from the local JSON server
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('http://localhost:3000/categories'); // Local JSON Server URL
+        const response = await fetch('http://192.168.1.116:3000/categories');
         const data = await response.json();
         setCategories(data);
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching categories:', error);
+      } finally {
         setLoading(false);
       }
     };
@@ -22,23 +41,29 @@ const DetailCard = () => {
     fetchCategories();
   }, []);
 
+  const renderCategory = ({ item }) => <CategoryItem category={item} />;
+  const keyExtractor = (item) => item.id.toString();
+
   if (loading) {
-    return <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary[600]} />
+        <Text variant="body2" color="secondary" style={styles.loadingText}>
+          Loading categories...
+        </Text>
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      {categories.map((category) => (
-        <View key={category.id} style={styles.card}>
-          {category.img && (
-            <Image source={{ uri: category.img }} style={styles.cardImage} />
-          )}
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>{category.name}</Text>
-            {category.email && <Text style={styles.cardEmail}>{category.email}</Text>}
-          </View>
-        </View>
-      ))}
+      <FlatList
+        data={categories}
+        renderItem={renderCategory}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 };
@@ -46,40 +71,35 @@ const DetailCard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
+    backgroundColor: COLORS.neutral[50],
   },
-  loader: {
-    marginTop: 50,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: SPACING.sm,
+  },
+  listContainer: {
+    padding: SPACING.md,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginBottom: 20,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.5,
-    elevation: 5,
+    marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
     height: 150,
-    borderRadius: 10,
   },
   cardDetails: {
-    marginTop: 10,
+    padding: SPACING.md,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    marginBottom: SPACING.xs,
   },
   cardEmail: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 5,
+    // No additional styles needed
   },
 });
 
